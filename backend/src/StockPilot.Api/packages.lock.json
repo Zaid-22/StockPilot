@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "stockpilot.application": {
+        "type": "Project",
+        "dependencies": {
+          "StockPilot.Domain": "[1.0.0, )"
+        }
+      },
+      "stockpilot.domain": {
+        "type": "Project"
+      },
+      "stockpilot.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "StockPilot.Application": "[1.0.0, )"
+        }
+      }
+    }
+  }
+}
