@@ -2,7 +2,7 @@
 
 Inventory, purchasing, and sales management with ASP.NET Core and **React JavaScript** (`.js` / `.jsx`).
 
-Phase 1 implements Identity cookie sessions, Admin/Staff/Viewer roles, CSRF protection, login/logout, restored sessions, an admin-only account directory, error handling, tests, and CI. Inventory workflows start in subsequent phases. The overview labels future features as planned.
+Phase 1 provides Identity cookie sessions, Admin/Staff/Viewer roles, CSRF protection, login/logout, restored sessions, and an admin-only account directory. Phase 2 adds products, categories, suppliers, and customers with search, pagination, create/edit/details, and deactivation. Purchasing, sales, and stock movements remain planned.
 
 ## Architecture
 
@@ -19,7 +19,7 @@ Frontend: React, Vite, Material UI, React Router, TanStack Query, React Hook For
 
 ## Local setup
 
-Requirements: .NET 10 SDK compatible with `global.json`, Node.js 24, and a reachable SQL Server instance. On Apple Silicon, use a supported external SQL Server host or hosted database. SQLite is only a fast authentication-test database.
+Requirements: .NET 10 SDK compatible with `global.json`, Node.js 24, and a reachable SQL Server instance. On Apple Silicon, use a supported external SQL Server host or hosted database. SQLite is only a fast integration-test database; the application uses SQL Server.
 
 From the repository root:
 
@@ -71,24 +71,40 @@ Sessions use HttpOnly, SameSite=Strict cookies, Secure in production, with an ei
 
 Anonymous requests return `401`; insufficient privileges return `403`, without HTML redirects. Login failures do not reveal whether an account exists. Login allows 20 requests per IP per minute; five failed password attempts lock an account for 15 minutes. Session expiry and logout clear private query data. Ordinary logout removes this browser's cookie; immediate revocation of a copied cookie would require additional session tracking.
 
-Staff and Viewer have authenticated workspace access. Their purchasing/sales permissions will be added with those features. The Admin directory proves server-side role enforcement.
+Admin and Staff can edit the catalog; Viewer has read-only access. The API enforces these permissions independently of the UI. Purchasing/sales permissions will be added with those features.
 
 OpenAPI JSON: `/openapi/v1.json` in Development. Console logs use JSON; errors use Problem Details; API responses are not cached.
+
+## Catalog
+
+Create an active category, then create a product from **Products → Add product**. Suppliers and customers have separate contact directories.
+
+| Endpoint | Behavior |
+| --- | --- |
+| `GET /api/catalog/{kind}` | Search/filter/pagination for `products`, `categories`, `suppliers`, `customers` |
+| `GET /api/catalog/{kind}/{id}` | Record details |
+| `POST /api/catalog/{kind}` | Create; Admin/Staff and fresh CSRF token required |
+| `PUT /api/catalog/{kind}/{id}` | Edit, deactivate, or reactivate; Admin/Staff, CSRF, and current `version` required |
+
+List parameters: `q`, `isActive`, `page` (default 1), `pageSize` (default 20, maximum 100), and `categoryId` for products. Responses contain `items`, `totalCount`, `page`, and `pageSize`.
+
+SKUs are trimmed, uppercased, and unique across active and inactive products. They accept 1–64 ASCII letters/numbers/dots/underscores/hyphens, starting with a letter or number. Category names are normalized and unique. Prices are non-negative decimals with up to three decimal places; quantities and reorder levels are whole numbers.
+
+The migration seeds one Main warehouse. Product creation atomically creates one zero-stock balance. Catalog edits never change stock. Deactivation preserves records and balances; there is no delete endpoint. New category assignments require an active category, while existing products can retain a deactivated category. Stale edits return `409` and offer a reload in the editor.
 
 ## Verification
 
 ```bash
-dotnet test backend/StockPilot.sln -c Release
-npm run lint --prefix frontend
-npm test --prefix frontend
-npm run build --prefix frontend
+bash scripts/verify.sh
 ```
+
+This restores locked dependencies, builds and tests the backend, checks migration coverage, lints/tests/builds the frontend, and prepares `artifacts/app`. In environments where the VSTest communication socket is unavailable, use `TEST_RUNNER=in-process bash scripts/verify.sh`; it executes the same xUnit tests through the in-process runner.
 
 Backend tests use isolated SQLite by default. Set `TEST_SQLSERVER_CONNECTION_STRING` to a dedicated test SQL Server to test real migrations and behavior. Each test creates and deletes a unique `StockPilotTest_<guid>` database, requiring create/drop database permissions. Never point tests at a production server.
 
-GitHub Actions runs backend tests against SQL Server 2022, checks for a missing migration, checks the frontend, publishes the application, and tests HTTPS login/logout against the published build. CI database credentials are disposable and scoped to its isolated service.
+GitHub Actions is configured to run backend tests against SQL Server 2022, check for a missing migration, check the frontend, publish the application, and test HTTPS login/logout plus the catalog workflow against the published build. CI database credentials are disposable and scoped to its isolated service.
 
-See [docs/phase-1-status.md](docs/phase-1-status.md) for actual local evidence and outstanding checks. A configured workflow is not a completed remote run.
+See [docs/phase-2-status.md](docs/phase-2-status.md) for current evidence and outstanding checks, and [docs/phase-1-status.md](docs/phase-1-status.md) for the authentication follow-up. A configured workflow is not a completed remote run.
 
 ## Publishing
 
@@ -105,8 +121,20 @@ Apply migrations with a deployment account, not a permanently elevated runtime a
 
 For an isolated deployment check, set those three connection/bootstrap environment variables and run `bash scripts/smoke-published.sh` after publishing. It uses a temporary HTTPS certificate on loopback, tests secure cookies, and stops its process afterward. It initializes the database you specify: use a disposable database. External hosting has not been provisioned.
 
+To run the remaining checks together from an unrestricted terminal with access to a dedicated SQL Server:
+
+```bash
+export TEST_SQLSERVER_CONNECTION_STRING='YOUR_TEST_SERVER_CONNECTION_WITH_CREATE_DROP_PERMISSIONS'
+export ConnectionStrings__StockPilot='YOUR_DISPOSABLE_SMOKE_DATABASE_CONNECTION'
+export Bootstrap__AdminEmail='admin@stockpilot.test'
+export Bootstrap__AdminPassword='YOUR_UNIQUE_SMOKE_PASSWORD'
+RUN_PUBLISHED_SMOKE=1 bash scripts/verify.sh
+```
+
+The integration suite creates/deletes its own unique databases. The HTTPS smoke check leaves its named database and sample catalog records available for inspection. Remove that disposable database separately when finished.
+
 ## Working agreement
 
 Build one vertical feature at a time, keep JavaScript throughout the frontend, and commit logically after relevant checks. Once acceptance checks pass and blocking defects are fixed, move additional ideas to the backlog.
 
-Next: Phase 2 catalog — products, categories, suppliers, customers, unique SKUs, search, pagination, and the first complete React-to-SQL business workflow.
+Next acceptance gate: run the SQL Server suite and published HTTPS smoke check. The next feature phase can then build stock movements and purchasing on the catalog foundation.
