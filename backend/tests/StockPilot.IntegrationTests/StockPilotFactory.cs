@@ -1,4 +1,8 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Hosting;
+using StockPilot.Api;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -23,28 +27,43 @@ public sealed class StockPilotFactory : WebApplicationFactory<Program>, IAsyncLi
     private string? isolatedSqlConnection;
     public TestClock Clock { get; } = new();
 
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    protected override IHost CreateHost(IHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
-        builder.ConfigureTestServices(services =>
+        // Build the same HTTP pipeline directly; no diagnostic entry-point discovery
+        // or listening network socket is needed by TestServer.
+        var app = ApplicationBootstrap.Build(new WebApplicationOptions
         {
-            services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
-            services.RemoveAll<IDbContextOptionsConfiguration<ApplicationDbContext>>();
-            if (!string.IsNullOrWhiteSpace(sqlConnection))
-            {
-                var connection = new SqlConnectionStringBuilder(sqlConnection)
-                { InitialCatalog = "StockPilotTest_" + Guid.NewGuid().ToString("N") };
-                isolatedSqlConnection = connection.ConnectionString;
-                services.AddDbContext<ApplicationDbContext>(o => o.UseSqlServer(isolatedSqlConnection));
-            }
-            else
-            {
-                sqlite.Open();
-                services.AddDbContext<ApplicationDbContext>(o => o.UseSqlite(sqlite));
-            }
-            services.Configure<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme,
-                options => options.TimeProvider = Clock);
+            EnvironmentName = "Testing",
+            ApplicationName = typeof(Program).Assembly.GetName().Name,
+            ContentRootPath = Path.GetDirectoryName(typeof(Program).Assembly.Location)!
+        }, configuration =>
+        {
+            configuration.WebHost.UseTestServer();
+            ConfigureServices(configuration.Services);
         });
+        app.Start();
+        return app;
+    }
+
+    private void ConfigureServices(IServiceCollection services)
+    {
+        services.AddDataProtection().UseEphemeralDataProtectionProvider();
+        services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
+        services.RemoveAll<IDbContextOptionsConfiguration<ApplicationDbContext>>();
+        if (!string.IsNullOrWhiteSpace(sqlConnection))
+        {
+            var connection = new SqlConnectionStringBuilder(sqlConnection)
+            { InitialCatalog = "StockPilotTest_" + Guid.NewGuid().ToString("N") };
+            isolatedSqlConnection = connection.ConnectionString;
+            services.AddDbContext<ApplicationDbContext>(o => o.UseSqlServer(isolatedSqlConnection));
+        }
+        else
+        {
+            sqlite.Open();
+            services.AddDbContext<ApplicationDbContext>(o => o.UseSqlite(sqlite));
+        }
+        services.Configure<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme,
+            options => options.TimeProvider = Clock);
     }
 
     public HttpClient Browser() => CreateClient(new WebApplicationFactoryClientOptions

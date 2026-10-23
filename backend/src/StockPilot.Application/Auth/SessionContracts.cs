@@ -4,8 +4,8 @@ using System.Security.Claims;
 namespace StockPilot.Application.Auth;
 
 public sealed record LoginRequest(
-    [property: Required, EmailAddress, MaxLength(256)] string Email,
-    [property: Required, MaxLength(256)] string Password);
+    [Required, EmailAddress, MaxLength(256)] string Email,
+    [Required, MaxLength(256)] string Password);
 
 public sealed record SessionUser(string Id, string Email, string DisplayName, IReadOnlyList<string> Roles);
 

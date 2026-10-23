@@ -89,7 +89,7 @@ public sealed class AuthenticationTests : IAsyncLifetime
     public async Task Admin_can_read_user_directory()
     {
         using var client = app.Browser();
-        await LoginAsync(client);
+        (await LoginAsync(client)).EnsureSuccessStatusCode();
         var users = await client.GetFromJsonAsync<SessionUser[]>("/api/admin/users");
         Assert.Contains(users!, u => u.Roles.Contains(Roles.Viewer));
     }
@@ -98,7 +98,7 @@ public sealed class AuthenticationTests : IAsyncLifetime
     public async Task Logout_requires_fresh_csrf_and_removes_browser_session()
     {
         using var client = app.Browser();
-        await LoginAsync(client);
+        (await LoginAsync(client)).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/auth/logout", null)).StatusCode);
         await AddCsrfAsync(client);
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync("/api/auth/logout", null)).StatusCode);
@@ -109,7 +109,7 @@ public sealed class AuthenticationTests : IAsyncLifetime
     public async Task Expired_session_is_rejected()
     {
         using var client = app.Browser();
-        await LoginAsync(client);
+        (await LoginAsync(client)).EnsureSuccessStatusCode();
         try
         {
             app.Clock.Advance(TimeSpan.FromHours(9));
