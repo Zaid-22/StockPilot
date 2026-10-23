@@ -23,6 +23,7 @@ export default function WorkspaceLayout() {
       <Brand /><Typography variant="overline" sx={{ mt: 5, mb: 1, color: 'text.secondary', letterSpacing: 1.5 }}>WORKSPACE</Typography>
       <Button component={Link} to="/" startIcon={<DashboardOutlinedIcon />} variant={pathname === '/' ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start', mb: 1 }}>Overview</Button>
       <Button component={Link} to="/inventory" startIcon={<Inventory2OutlinedIcon />} variant={pathname === '/inventory' ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start', mb: 1 }}>Inventory</Button>
+      <Button component={Link} to="/purchases" variant={pathname === '/purchases' ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start', mb: 1 }}>Purchasing</Button>
       {Object.entries(catalogs).map(([kind, catalog]) => <Button key={kind} component={Link} to={`/catalog/${kind}`} startIcon={<Inventory2OutlinedIcon />} variant={pathname === `/catalog/${kind}` ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start', mb: 1 }}>{catalog.title}</Button>)}
       {user.roles.includes('Admin') && <Button component={Link} to="/access" startIcon={<PeopleOutlineIcon />} variant={pathname === '/access' ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start' }}>User access</Button>}
       <Box sx={{ flex: 1 }} /><Divider sx={{ my: 2 }} />
