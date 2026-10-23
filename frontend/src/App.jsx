@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, Link } from 'react-router-dom'
 import { Alert, Box, Button, CircularProgress, CssBaseline, ThemeProvider, Typography, createTheme } from '@mui/material'
@@ -6,11 +6,13 @@ import AuthProvider from './features/auth/AuthProvider'
 import { useAuth } from './features/auth/authContext'
 import LoginPage from './features/auth/LoginPage'
 import WorkspaceLayout from './components/WorkspaceLayout'
-import OverviewPage from './features/workspace/OverviewPage'
-import AccessPage from './features/access/AccessPage'
-import CatalogPage from './features/catalog/CatalogPage'
-import InventoryPage from './features/inventory/InventoryPage'
-import OrdersPage from './features/orders/OrdersPage'
+const OverviewPage = lazy(() => import('./features/workspace/OverviewPage'))
+const AccessPage = lazy(() => import('./features/access/AccessPage'))
+const CatalogPage = lazy(() => import('./features/catalog/CatalogPage'))
+const InventoryPage = lazy(() => import('./features/inventory/InventoryPage'))
+const OrdersPage = lazy(() => import('./features/orders/OrdersPage'))
+
+const ReportsPage = lazy(() => import('./features/reports/ReportsPage'))
 
 const theme = createTheme({
   palette: { primary: { main: '#244f3d' }, background: { default: '#f7f8f4', paper: '#ffffff' }, text: { primary: '#21392e', secondary: '#68766e' } },
@@ -31,11 +33,11 @@ function SessionRoutes() {
   const auth = useAuth()
   if (auth.loading) return <Box className="center-screen"><CircularProgress aria-label="Checking your session" /></Box>
   if (auth.error) return <Box className="center-screen"><Alert severity="error" action={<Button onClick={() => auth.retry()}>Retry</Button>}>{auth.error.message}</Alert></Box>
-  return <Routes>
+  return <Suspense fallback={<Box sx={{ p: 4 }}><CircularProgress aria-label="Loading page" /></Box>}><Routes>
     <Route path="/login" element={<LoginPage />} />
-    <Route element={<Protected />}><Route element={<WorkspaceLayout />}><Route index element={<OverviewPage />} /><Route path="/catalog/:kind" element={<CatalogPage />} /><Route path="/inventory" element={<InventoryPage />} /><Route path="/purchases" element={<OrdersPage key="purchases" kind="purchases" />} /><Route path="/sales" element={<OrdersPage key="sales" kind="sales" />} /><Route element={<Protected admin />}><Route path="/access" element={<AccessPage />} /></Route></Route></Route>
+    <Route element={<Protected />}><Route element={<WorkspaceLayout />}><Route index element={<OverviewPage />} /><Route path="/catalog/:kind" element={<CatalogPage />} /><Route path="/inventory" element={<InventoryPage />} /><Route path="/reports" element={<ReportsPage />} /><Route path="/purchases" element={<OrdersPage key="purchases" kind="purchases" />} /><Route path="/sales" element={<OrdersPage key="sales" kind="sales" />} /><Route element={<Protected admin />}><Route path="/access" element={<AccessPage />} /></Route></Route></Route>
     <Route path="*" element={<Box sx={{ p: 6 }}><Typography component="h1" variant="h4">Page not found</Typography><Button component={Link} to="/">Return to workspace</Button></Box>} />
-  </Routes>
+  </Routes></Suspense>
 }
 
 export default function App() {

@@ -16,3 +16,6 @@ body { margin: 0; min-width: 320px; }
 .center-screen { min-height: 100dvh; display: flex; justify-content: center; align-items: center; padding: 24px; }
 @media (max-width: 1100px) { .login-story { padding: 32px; } .login-form-panel { padding: 40px 30px; } .workspace-main { padding: 28px; } }
 @media (max-width: 899px) { .login-shell { display: block; padding: 0; } .login-story { display: none; } .login-form-panel { min-height: 100dvh; padding: 32px 24px; } .workspace { display: block; } .sidebar { width: 100%; border-right: 0; border-bottom: 1px solid #e1e6dd; padding: 20px; } .sidebar > hr, .sidebar > .MuiStack-root:not(:first-child), .sidebar > .MuiTypography-overline { display: none; } .sidebar > .MuiButton-root { margin-top: 8px; } .workspace-main { padding: 24px 20px; } }
+
+.workspace-nav { display: flex; flex-direction: column; }
+@media (max-width: 899px) { .workspace-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin-top: 16px; } .workspace-nav > .MuiButton-root { margin: 0; } }

@@ -22,6 +22,7 @@ function server(initialUser = null, loginStatus = 200) {
       user = null
       return new Response(null, { status: 204 })
     }
+    if (url === '/api/reports/summary') return json({ activeProducts: 0, unitsOnHand: 0, lowStockProducts: 0, openPurchaseOrders: 0, openSalesOrders: 0, lowStock: [], generatedAtUtc: '2026-10-23T10:00:00Z' })
     if (url === '/api/admin/users') return json([admin])
     throw new Error(`Unexpected request: ${url}`)
   })

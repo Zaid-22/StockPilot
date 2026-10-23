@@ -21,17 +21,20 @@ export default function WorkspaceLayout() {
   return <Box className="workspace">
     <Box component="aside" className="sidebar">
       <Brand /><Typography variant="overline" sx={{ mt: 5, mb: 1, color: 'text.secondary', letterSpacing: 1.5 }}>WORKSPACE</Typography>
+      <Box component="nav" aria-label="Workspace" className="workspace-nav">
       <Button component={Link} to="/" startIcon={<DashboardOutlinedIcon />} variant={pathname === '/' ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start', mb: 1 }}>Overview</Button>
       <Button component={Link} to="/inventory" startIcon={<Inventory2OutlinedIcon />} variant={pathname === '/inventory' ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start', mb: 1 }}>Inventory</Button>
       <Button component={Link} to="/purchases" variant={pathname === '/purchases' ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start', mb: 1 }}>Purchasing</Button>
       <Button component={Link} to="/sales" variant={pathname === '/sales' ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start', mb: 1 }}>Sales</Button>
       {Object.entries(catalogs).map(([kind, catalog]) => <Button key={kind} component={Link} to={`/catalog/${kind}`} startIcon={<Inventory2OutlinedIcon />} variant={pathname === `/catalog/${kind}` ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start', mb: 1 }}>{catalog.title}</Button>)}
       {user.roles.includes('Admin') && <Button component={Link} to="/access" startIcon={<PeopleOutlineIcon />} variant={pathname === '/access' ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start' }}>User access</Button>}
+      <Button component={Link} to="/reports" variant={pathname === '/reports' ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start', mb: 1 }}>Reports</Button>
+      </Box>
       <Box sx={{ flex: 1 }} /><Divider sx={{ my: 2 }} />
       <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}><Avatar sx={{ bgcolor: '#e0e9d7', color: 'primary.main' }}>{user.displayName?.[0] || user.email[0]}</Avatar><Box sx={{ minWidth: 0 }}><Typography variant="body2" fontWeight={700} noWrap>{user.displayName || user.email}</Typography><Typography variant="caption" color="text.secondary">{user.roles.join(' · ')}</Typography></Box></Stack>
       <Button onClick={signOut} disabled={busy} startIcon={<LogoutIcon />} sx={{ justifyContent: 'flex-start' }}>{busy ? 'Signing out…' : 'Sign out'}</Button>
     </Box>
-    <Box className="workspace-main"><Box component="header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 5 }}><Typography color="text.secondary" variant="body2">Workspace / {pathname === '/access' ? 'User access' : catalogs[pathname.split('/')[2]]?.title || 'Overview'}</Typography><Chip label="Connected workspace" size="small" variant="outlined" color="primary" /></Box>
+    <Box className="workspace-main"><Box component="header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 5 }}><Typography color="text.secondary" variant="body2">Workspace / {pathname === '/access' ? 'User access' : catalogs[pathname.split('/')[2]]?.title || ({ '/inventory': 'Inventory', '/purchases': 'Purchasing', '/sales': 'Sales', '/reports': 'Reports' })[pathname] || 'Overview'}</Typography><Chip label="Connected workspace" size="small" variant="outlined" color="primary" /></Box>
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}<Outlet />
     </Box>
   </Box>
