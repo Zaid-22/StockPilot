@@ -17,3 +17,7 @@
 artifacts/
 *.pfx
 *.pem
+
+**/__pycache__/
+.playwright-mcp/
+certificates/

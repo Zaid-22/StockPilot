@@ -85,7 +85,48 @@ for kind in ['suppliers', 'customers']:
         **contact, 'address': 'Amman', 'isActive': False,
     }, 'PUT')
     assert not saved['isActive'] and saved['address'] == 'Amman'
+# Exercise all business phases against the published application.
+product = mutate(path, {**update, 'version': deactivated['version'], 'isActive': True}, 'PUT')
+supplier = mutate('/api/catalog/suppliers', {'name': f'Delivery supplier {prefix}'}, expected=201)
+customer = mutate('/api/catalog/customers', {'name': f'Delivery customer {prefix}'}, expected=201)
+balance = json.load(request('/api/inventory/balances?productId=' + product['id']))['items'][0]
+adjustment = {'requestId': str(uuid.uuid4()), 'productId': product['id'], 'version': balance['version'],
+              'quantityChange': 2, 'reason': 'Opening count'}
+first = mutate('/api/inventory/adjustments', adjustment)
+assert mutate('/api/inventory/adjustments', adjustment) == first
+
+
+def create_order(kind, party_id, quantity, price):
+    order = mutate('/api/orders/' + kind, {'requestId': str(uuid.uuid4()), 'partyId': party_id,
+        'lines': [{'productId': product['id'], 'quantity': quantity, 'unitPrice': price}]}, expected=201)
+    return mutate(f'/api/orders/{kind}/{order["id"]}/confirm',
+                  {'requestId': str(uuid.uuid4()), 'version': order['version']})
+
+
+purchase = create_order('purchases', supplier['id'], 5, 4.125)
+receipt = {'requestId': str(uuid.uuid4()), 'version': purchase['version'], 'reference': 'Smoke delivery',
+           'lines': [{'lineId': purchase['lines'][0]['id'], 'quantity': 3}]}
+partial = mutate(f'/api/orders/purchases/{purchase["id"]}/receive', receipt)
+assert partial['status'] == 'Partial'
+assert mutate(f'/api/orders/purchases/{purchase["id"]}/receive', receipt) == partial
+sale = create_order('sales', customer['id'], 2, 12.125)
+shipment = {'requestId': str(uuid.uuid4()), 'version': sale['version'], 'reference': 'Smoke shipment',
+            'lines': [{'lineId': sale['lines'][0]['id'], 'quantity': 2}]}
+completed = mutate(f'/api/orders/sales/{sale["id"]}/ship', shipment)
+assert completed['status'] == 'Completed'
+assert mutate(f'/api/orders/sales/{sale["id"]}/ship', shipment) == completed
+balance = json.load(request('/api/inventory/balances?productId=' + product['id']))['items'][0]
+assert balance['quantityOnHand'] == 3
+mutate('/api/inventory/adjustments', {**adjustment, 'requestId': str(uuid.uuid4()),
+       'version': balance['version'], 'quantityChange': -4}, expected=409)
+journal = json.load(request('/api/inventory/movements?productId=' + product['id']))
+assert journal['totalCount'] == 3
+assert sum(row['quantityChange'] for row in journal['items']) == 3
+assert request('/api/reports/summary').status == 200
+for route in ['/inventory', '/purchases', '/sales', '/reports']:
+    assert b'<div id="root">' in request(route).read()
+
 token = json.load(request('/api/auth/csrf'))['token']
 assert request('/api/auth/logout', token=token, method='POST').status == 204
 assert request('/api/auth/me').status == 401
-print('Published HTTPS app: routes, health, secure login, catalog persistence/conflicts/deactivation and logout passed.')
+print('Published HTTPS app: authentication, catalog, inventory, purchasing, sales, reports, retries and logout passed.')

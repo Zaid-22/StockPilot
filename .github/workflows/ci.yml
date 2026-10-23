@@ -45,6 +45,7 @@ jobs:
           dotnet ef migrations has-pending-model-changes --project backend/src/StockPilot.Infrastructure --startup-project backend/src/StockPilot.Api --configuration Release --no-build
       - name: Check JavaScript frontend
         run: |
+          npm audit --prefix frontend --audit-level=high
           npm run lint --prefix frontend
           npm test --prefix frontend
           npm run build --prefix frontend
@@ -59,6 +60,8 @@ jobs:
           Bootstrap__AdminEmail: admin@stockpilot.test
           Bootstrap__AdminPassword: CI-only-Bootstrap-2026!
         run: bash scripts/smoke-published.sh
+      - name: Build production container
+        run: docker build -t stockpilot:ci .
       - uses: actions/upload-artifact@v4
         if: always()
         with:

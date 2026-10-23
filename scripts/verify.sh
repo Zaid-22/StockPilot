@@ -6,7 +6,7 @@ cd "$root"
 dotnet restore backend/StockPilot.sln --locked-mode
 dotnet tool restore
 npm ci --prefix frontend
-dotnet build backend/StockPilot.sln -c Release --no-restore
+dotnet build backend/StockPilot.sln -c Release --no-restore -m:1 -nodeReuse:false -p:UseSharedCompilation=false
 if [[ "${TEST_RUNNER:-standard}" == "in-process" ]]; then
   dotnet backend/tests/StockPilot.TestRunner/bin/Release/net10.0/StockPilot.TestRunner.dll
 else
@@ -18,7 +18,7 @@ npm test --prefix frontend
 npm run build --prefix frontend
 mkdir -p backend/src/StockPilot.Api/wwwroot
 cp -R frontend/dist/. backend/src/StockPilot.Api/wwwroot/
-dotnet publish backend/src/StockPilot.Api -c Release --no-restore -o artifacts/app
+dotnet publish backend/src/StockPilot.Api -c Release --no-restore -p:UseSharedCompilation=false -o artifacts/app
 
 if [[ -z "${TEST_SQLSERVER_CONNECTION_STRING:-}" ]]; then
   printf '%s\n' 'SQLite tests passed. SQL Server verification was not requested; set TEST_SQLSERVER_CONNECTION_STRING to run it.'

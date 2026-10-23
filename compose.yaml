@@ -1,0 +1,25 @@
+name: stockpilot
+services:
+  app:
+    image: stockpilot:local
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8443:8443"
+    environment:
+      ConnectionStrings__StockPilot: ${STOCKPILOT_DB_CONNECTION:?Set STOCKPILOT_DB_CONNECTION}
+      AllowedHosts: ${STOCKPILOT_ALLOWED_HOSTS:-localhost;127.0.0.1}
+      ASPNETCORE_Kestrel__Certificates__Default__Path: /https/stockpilot.pfx
+      ASPNETCORE_Kestrel__Certificates__Default__Password: ${STOCKPILOT_CERT_PASSWORD:?Set STOCKPILOT_CERT_PASSWORD}
+    volumes:
+      - stockpilot-keys:/var/stockpilot/keys
+      - type: bind
+        source: ${STOCKPILOT_CERT_PATH:?Set the absolute certificate path}
+        target: /https/stockpilot.pfx
+        read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+volumes:
+  stockpilot-keys:

@@ -1,0 +1,17 @@
+.git
+.env
+.env.*
+**/node_modules
+**/bin
+**/obj
+**/dist
+**/wwwroot
+**/TestResults
+**/coverage
+**/.keys
+**/appsettings.Local.json
+artifacts
+certificates
+*.pfx
+*.pem
+.playwright-mcp
