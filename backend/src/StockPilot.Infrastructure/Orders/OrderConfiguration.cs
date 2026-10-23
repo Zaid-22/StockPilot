@@ -21,6 +21,7 @@ public static class OrderConfiguration
         order.Property(x => x.PartyName).HasMaxLength(160);
         order.Property(x => x.Notes).HasMaxLength(500);
         order.Property(x => x.CreatedBy).HasMaxLength(450);
+        order.Property(x => x.CreatedAtUtc).HasConversion(x => x, x => DateTime.SpecifyKind(x, DateTimeKind.Utc));
         order.HasIndex(x => new { x.Kind, x.Status, x.CreatedAtUtc, x.Id });
         order.HasOne<Supplier>().WithMany().HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.Restrict);
         order.HasOne<Customer>().WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);

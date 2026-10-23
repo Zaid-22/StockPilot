@@ -14,6 +14,7 @@ public static class InventoryConfiguration
         operation.HasKey(x => x.Id);
         operation.Property(x => x.Fingerprint).HasMaxLength(64);
         operation.Property(x => x.ActorId).HasMaxLength(450);
+        operation.Property(x => x.CreatedAtUtc).HasConversion(x => x, x => DateTime.SpecifyKind(x, DateTimeKind.Utc));
         var movement = model.Entity<StockMovement>();
         movement.ToTable("StockMovements", t =>
         {
@@ -24,6 +25,7 @@ public static class InventoryConfiguration
         movement.Property(x => x.Kind).HasMaxLength(32);
         movement.Property(x => x.Reason).HasMaxLength(500);
         movement.Property(x => x.ActorId).HasMaxLength(450);
+        movement.Property(x => x.CreatedAtUtc).HasConversion(x => x, x => DateTime.SpecifyKind(x, DateTimeKind.Utc));
         movement.HasIndex(x => new { x.ProductId, x.CreatedAtUtc, x.Id });
         movement.HasIndex(x => new { x.CreatedAtUtc, x.Id });
         movement.HasOne<Product>().WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);

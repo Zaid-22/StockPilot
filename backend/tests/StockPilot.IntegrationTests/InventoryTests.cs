@@ -27,6 +27,7 @@ public sealed class InventoryTests : WorkflowFixture
         Assert.Equal(8, movement.QuantityChange);
         Assert.Equal("Counted shelf", movement.Reason);
         Assert.NotEmpty(movement.ActorId);
+        Assert.Equal(DateTimeKind.Utc, movement.CreatedAtUtc.Kind);
         input.QuantityChange = 9;
         Assert.Equal(HttpStatusCode.Conflict, (await Client.PostAsJsonAsync("/api/inventory/adjustments", input)).StatusCode);
     }
@@ -71,6 +72,7 @@ public sealed class InventoryTests : WorkflowFixture
         var movement = await db.Set<StockMovement>().SingleAsync();
         movement.Reason = "Rewritten";
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+        Assert.Throws<InvalidOperationException>(() => db.SaveChanges());
     }
 
     [Fact]

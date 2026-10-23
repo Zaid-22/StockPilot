@@ -20,11 +20,22 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         builder.Entity<ApplicationUser>().Property(u => u.DisplayName).HasMaxLength(100);
     }
 
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        GuardHistory();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        GuardHistory();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    private void GuardHistory()
     {
         if (ChangeTracker.Entries().Any(x => (x.Entity is StockMovement or StockOperation)
             && x.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Stock history is append-only. Post a correcting movement instead.");
-        return base.SaveChangesAsync(cancellationToken);
     }
 }
