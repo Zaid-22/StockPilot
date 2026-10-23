@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using StockPilot.Application.Auth;
+using StockPilot.Application.Catalog;
+using StockPilot.Infrastructure.Catalog;
 using StockPilot.Infrastructure.Data;
 using StockPilot.Infrastructure.Identity;
 
@@ -21,6 +23,7 @@ public static class DependencyInjection
         }).AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultTokenProviders();
         services.AddScoped<ISessionService, SessionService>();
         services.AddScoped<IUserDirectory, UserDirectory>();
+        services.AddScoped<ICatalogService, CatalogService>();
         return services;
     }
 }

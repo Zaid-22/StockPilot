@@ -27,6 +27,7 @@ public static class ApplicationBootstrap
         builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
             context.ProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier);
         builder.Services.AddOpenApi();
+        builder.Services.AddExceptionHandler<CatalogExceptionHandler>();
         builder.Services.AddAuthorizationBuilder().SetFallbackPolicy(
             new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
         builder.Services.AddAntiforgery(options =>
