@@ -10,6 +10,8 @@ using StockPilot.Application.Inventory;
 using StockPilot.Infrastructure.Inventory;
 using StockPilot.Application.Orders;
 using StockPilot.Infrastructure.Orders;
+using StockPilot.Application.Reports;
+using StockPilot.Infrastructure.Reports;
 
 namespace StockPilot.Infrastructure;
 
@@ -32,6 +34,7 @@ public static class DependencyInjection
         services.AddScoped<StockWriter>();
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<IOrderService, OrderService>();
+        services.AddScoped<IReportService, ReportService>();
         return services;
     }
 }
