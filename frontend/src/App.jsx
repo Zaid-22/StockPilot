@@ -33,7 +33,7 @@ function SessionRoutes() {
   if (auth.error) return <Box className="center-screen"><Alert severity="error" action={<Button onClick={() => auth.retry()}>Retry</Button>}>{auth.error.message}</Alert></Box>
   return <Routes>
     <Route path="/login" element={<LoginPage />} />
-    <Route element={<Protected />}><Route element={<WorkspaceLayout />}><Route index element={<OverviewPage />} /><Route path="/catalog/:kind" element={<CatalogPage />} /><Route path="/inventory" element={<InventoryPage />} /><Route path="/purchases" element={<OrdersPage key="purchases" kind="purchases" />} /><Route element={<Protected admin />}><Route path="/access" element={<AccessPage />} /></Route></Route></Route>
+    <Route element={<Protected />}><Route element={<WorkspaceLayout />}><Route index element={<OverviewPage />} /><Route path="/catalog/:kind" element={<CatalogPage />} /><Route path="/inventory" element={<InventoryPage />} /><Route path="/purchases" element={<OrdersPage key="purchases" kind="purchases" />} /><Route path="/sales" element={<OrdersPage key="sales" kind="sales" />} /><Route element={<Protected admin />}><Route path="/access" element={<AccessPage />} /></Route></Route></Route>
     <Route path="*" element={<Box sx={{ p: 6 }}><Typography component="h1" variant="h4">Page not found</Typography><Button component={Link} to="/">Return to workspace</Button></Box>} />
   </Routes>
 }

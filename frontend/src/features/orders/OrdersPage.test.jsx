@@ -78,3 +78,27 @@ it('shows order details without mutation controls for a viewer', async () => {
   expect(screen.queryByRole('button', { name: 'Receive stock' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'New order' })).not.toBeInTheDocument()
 })
+
+it('ships sales quantities with a shipment reference and explains availability', async () => {
+  const fetch = server({ kind: 'sales' }); const user = userEvent.setup(); render(<App />)
+  expect(await screen.findByText(/Confirmation does not reserve stock/)).toBeInTheDocument()
+  await user.click(await screen.findByRole('button', { name: 'View' }))
+  const dialog = within(screen.getByRole('dialog'))
+  await user.click(await dialog.findByRole('button', { name: 'Ship order' }))
+  await user.type(dialog.getByLabelText(/^Shipment reference/), 'SHIP-42')
+  await user.clear(dialog.getByLabelText('KEY-1 quantity')); await user.type(dialog.getByLabelText('KEY-1 quantity'), '2')
+  await user.click(dialog.getByRole('button', { name: 'Post shipment' }))
+  expect(await dialog.findByText(/Office supply · Partial/)).toBeInTheDocument()
+  const call = fetch.mock.calls.find(([url]) => url.endsWith('/ship'))
+  expect(JSON.parse(call[1].body)).toMatchObject({ reference: 'SHIP-42', lines: [{ lineId: 'line', quantity: 2 }] })
+})
+
+it('uses the selected product selling price for a sales draft', async () => {
+  server({ kind: 'sales' }); const user = userEvent.setup(); render(<App />)
+  await user.click(await screen.findByRole('button', { name: 'New order' }))
+  const dialog = within(screen.getByRole('dialog'))
+  expect(dialog.getByRole('combobox', { name: /^Customer/ })).toBeInTheDocument()
+  await user.click(dialog.getByRole('combobox', { name: /^Product 1/ }))
+  await user.click(await screen.findByRole('option', { name: 'KEY-1 · Keyboard' }))
+  expect(dialog.getByLabelText(/^Unit price 1/)).toHaveValue(12.125)
+})
