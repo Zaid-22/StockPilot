@@ -32,15 +32,18 @@ public sealed class OrderService(ApplicationDbContext db, OperationExecutor oper
     public Task<OrderDto> CreateAsync(OrderKind kind, CreateOrderInput input, string actorId, CancellationToken ct) =>
         operations.ExecuteAsync(input.RequestId, actorId, $"create-{kind}", input, async () =>
         {
-            if (kind != OrderKind.Purchase) throw new BusinessException(400, "Unsupported order kind.");
+            if (!Enum.IsDefined(kind)) throw new BusinessException(400, "Unsupported order kind.");
             if (input.Lines is null || input.Lines.Count is < 1 or > 50 || input.Lines.Any(x => x is null)
                 || input.Lines.Select(x => x.ProductId).Distinct().Count() != input.Lines.Count)
                 throw new BusinessException(400, "Use 1–50 distinct product lines.");
-            var supplier = await db.Set<Supplier>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == input.PartyId && x.IsActive, ct)
-                ?? throw new BusinessException(400, "Choose an active supplier.");
-            var order = new Order { Kind = kind, SupplierId = supplier.Id, PartyName = supplier.Name,
+            var partyName = kind == OrderKind.Purchase
+                ? await db.Set<Supplier>().Where(x => x.Id == input.PartyId && x.IsActive).Select(x => x.Name).SingleOrDefaultAsync(ct)
+                : await db.Set<Customer>().Where(x => x.Id == input.PartyId && x.IsActive).Select(x => x.Name).SingleOrDefaultAsync(ct);
+            if (partyName is null) throw new BusinessException(400, "Choose an active supplier or customer.");
+            var order = new Order { Kind = kind, SupplierId = kind == OrderKind.Purchase ? input.PartyId : null,
+                CustomerId = kind == OrderKind.Sale ? input.PartyId : null, PartyName = partyName,
                 Notes = input.Notes?.Trim() ?? "", CreatedBy = actorId };
-            order.Number = "PO-" + order.Id.ToString("N").ToUpperInvariant();
+            order.Number = (kind == OrderKind.Purchase ? "PO-" : "SO-") + order.Id.ToString("N").ToUpperInvariant();
             var ids = input.Lines.Select(x => x.ProductId).ToArray();
             var products = await db.Set<Product>().AsNoTracking().Where(x => ids.Contains(x.Id) && x.IsActive).ToDictionaryAsync(x => x.Id, ct);
             foreach (var line in input.Lines)
@@ -60,8 +63,10 @@ public sealed class OrderService(ApplicationDbContext db, OperationExecutor oper
             if (action == "confirm" && order.Status == OrderStatus.Draft)
             {
                 // A party or product may have been deactivated after the draft was created.
-                if (!await db.Set<Supplier>().AnyAsync(x => x.Id == order.SupplierId && x.IsActive, ct))
-                    throw new BusinessException(409, "Supplier is inactive. Cancel this draft and choose an active supplier.");
+                var activeParty = kind == OrderKind.Purchase
+                    ? await db.Set<Supplier>().AnyAsync(x => x.Id == order.SupplierId && x.IsActive, ct)
+                    : await db.Set<Customer>().AnyAsync(x => x.Id == order.CustomerId && x.IsActive, ct);
+                if (!activeParty) throw new BusinessException(409, "Contact is inactive. Cancel this draft and choose an active contact.");
                 var ids = order.Lines.Select(x => x.ProductId).ToArray();
                 if (await db.Set<Product>().CountAsync(x => ids.Contains(x.Id) && x.IsActive, ct) != ids.Length)
                     throw new BusinessException(409, "An order product is inactive. Cancel this draft and recreate it.");
@@ -79,7 +84,7 @@ public sealed class OrderService(ApplicationDbContext db, OperationExecutor oper
         {
             var order = await LoadAsync(kind, id, input.Version, ct);
             if (order.Status is not (OrderStatus.Confirmed or OrderStatus.Partial))
-                throw new BusinessException(409, "Only confirmed or partially fulfilled orders can be received.");
+                throw new BusinessException(409, "Only confirmed or partially fulfilled orders can be processed.");
             if (string.IsNullOrWhiteSpace(input.Reference) || input.Lines is null || input.Lines.Count is < 1 or > 50
                 || input.Lines.Any(x => x is null) || input.Lines.Select(x => x.LineId).Distinct().Count() != input.Lines.Count)
                 throw new BusinessException(400, "Provide a delivery reference and distinct order lines.");
@@ -90,7 +95,8 @@ public sealed class OrderService(ApplicationDbContext db, OperationExecutor oper
                     ?? throw new BusinessException(400, "A line does not belong to this order.");
                 if (item.Quantity <= 0 || item.Quantity > line.Quantity - line.ProcessedQuantity)
                     throw new BusinessException(409, "Quantity exceeds the outstanding order quantity.");
-                await stock.ApplyAsync(line.ProductId, item.Quantity, input.RequestId, actorId, "Receipt",
+                await stock.ApplyAsync(line.ProductId, kind == OrderKind.Purchase ? item.Quantity : -item.Quantity,
+                    input.RequestId, actorId, kind == OrderKind.Purchase ? "Receipt" : "Shipment",
                     input.Reference.Trim(), order.Id, null, ct);
                 line.ProcessedQuantity += item.Quantity;
             }
