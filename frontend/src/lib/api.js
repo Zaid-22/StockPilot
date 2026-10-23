@@ -29,7 +29,7 @@ export async function apiRequest(path, { method = 'GET', body, headers = {} } = 
 
 // Fetch a token for the current identity before each write. An anonymous token
 // becomes invalid after login; keeping it forever would break logout.
-export async function apiMutation(path, body) {
+export async function apiMutation(path, body, method = 'POST') {
   const { token } = await apiRequest('/auth/csrf')
-  return apiRequest(path, { method: 'POST', body, headers: { 'X-CSRF-TOKEN': token } })
+  return apiRequest(path, { method, body, headers: { 'X-CSRF-TOKEN': token } })
 }
