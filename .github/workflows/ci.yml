@@ -1,0 +1,68 @@
+name: StockPilot CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: CI-only-StockPilot-2026!
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'CI-only-StockPilot-2026!' -C -Q 'SELECT 1' -b"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      TEST_SQLSERVER_CONNECTION_STRING: Server=localhost,1433;User Id=sa;Password=CI-only-StockPilot-2026!;Encrypt=true;TrustServerCertificate=true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Restore locked dependencies
+        run: |
+          dotnet restore backend/StockPilot.sln --locked-mode
+          dotnet tool restore
+          npm ci --prefix frontend
+      - name: Build and test against SQL Server
+        run: |
+          dotnet build backend/StockPilot.sln -c Release --no-restore
+          dotnet test backend/StockPilot.sln -c Release --no-build --logger trx
+          dotnet ef migrations has-pending-model-changes --project backend/src/StockPilot.Infrastructure --startup-project backend/src/StockPilot.Api --configuration Release --no-build
+      - name: Check JavaScript frontend
+        run: |
+          npm run lint --prefix frontend
+          npm test --prefix frontend
+          npm run build --prefix frontend
+      - name: Publish same-origin app
+        run: |
+          mkdir -p backend/src/StockPilot.Api/wwwroot
+          cp -R frontend/dist/. backend/src/StockPilot.Api/wwwroot/
+          dotnet publish backend/src/StockPilot.Api -c Release --no-restore -o artifacts/app
+      - name: Smoke test published app over HTTPS
+        env:
+          ConnectionStrings__StockPilot: Server=localhost,1433;Database=StockPilotSmoke;User Id=sa;Password=CI-only-StockPilot-2026!;Encrypt=true;TrustServerCertificate=true
+          Bootstrap__AdminEmail: admin@stockpilot.test
+          Bootstrap__AdminPassword: CI-only-Bootstrap-2026!
+        run: bash scripts/smoke-published.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-results
+          path: |
+            backend/**/TestResults/*.trx
+            artifacts/smoke.log
