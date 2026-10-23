@@ -48,11 +48,6 @@ public sealed class ProductInput : IValidatableObject
     }
 }
 
-public sealed class CatalogException(int statusCode, string message) : Exception(message)
-{
-    public int StatusCode { get; } = statusCode;
-}
-
 public interface ICatalogService
 {
     Task<PageResult<ProductDto>> ProductsAsync(CatalogQuery query, CancellationToken ct);

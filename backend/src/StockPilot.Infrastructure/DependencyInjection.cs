@@ -6,6 +6,8 @@ using StockPilot.Application.Catalog;
 using StockPilot.Infrastructure.Catalog;
 using StockPilot.Infrastructure.Data;
 using StockPilot.Infrastructure.Identity;
+using StockPilot.Application.Inventory;
+using StockPilot.Infrastructure.Inventory;
 
 namespace StockPilot.Infrastructure;
 
@@ -24,6 +26,9 @@ public static class DependencyInjection
         services.AddScoped<ISessionService, SessionService>();
         services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddScoped<ICatalogService, CatalogService>();
+        services.AddScoped<OperationExecutor>();
+        services.AddScoped<StockWriter>();
+        services.AddScoped<IInventoryService, InventoryService>();
         return services;
     }
 }

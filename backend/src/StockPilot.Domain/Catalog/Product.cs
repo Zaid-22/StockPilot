@@ -26,6 +26,7 @@ public sealed class Warehouse
 
 public sealed class InventoryBalance
 {
+    public Guid Version { get; set; } = Guid.NewGuid();
     public Guid ProductId { get; set; }
     public Product Product { get; set; } = null!;
     public Guid WarehouseId { get; set; }
