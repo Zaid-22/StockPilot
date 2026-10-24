@@ -48,4 +48,17 @@ describe('API requests', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 429 })))
     await expect(apiRequest('/auth/login')).rejects.toThrow('Too many sign-in attempts')
   })
+  it.each(['truncated JSON', 'interrupted body', 'unexpected HTML'])('marks a successful response with %s as uncertain', async failure => {
+    const response = failure === 'unexpected HTML'
+      ? new Response('<html>Proxy response</html>', { status: 201, headers: { 'Content-Type': 'text/html' } })
+      : new Response('{"id":', { status: 201, headers: { 'Content-Type': 'application/json' } })
+    if (failure === 'interrupted body') vi.spyOn(response, 'json').mockRejectedValue(new TypeError('Connection closed'))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response))
+    await expect(apiRequest('/orders/purchases', { method: 'POST', body: { requestId: 'original' } }))
+      .rejects.toMatchObject({ name: 'ApiError', status: 0 })
+  })
+  it('preserves a failed HTTP status when its JSON body is unreadable', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{', { status: 503, headers: { 'Content-Type': 'application/json' } })))
+    await expect(apiRequest('/orders/purchases')).rejects.toMatchObject({ name: 'ApiError', status: 503 })
+  })
 })
