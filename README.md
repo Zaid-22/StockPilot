@@ -2,7 +2,7 @@
 
 Inventory, purchasing, and sales management with ASP.NET Core and **React JavaScript** (`.js` / `.jsx`).
 
-Phase 1 provides Identity cookie sessions, Admin/Staff/Viewer roles, CSRF protection, login/logout, restored sessions, and an admin-only account directory. Phase 2 adds products, categories, suppliers, and customers with search, pagination, create/edit/details, and deactivation. Purchasing, sales, and stock movements remain planned.
+Implemented: secure account sessions, product/contact catalogs, inventory balances and movement history, purchase orders with partial receiving, sales orders with partial shipping, a live dashboard, and date-based reports. Deployment files and a demo guide are included. SQL Server acceptance and live hosting are still pending; see [current phase status](docs/phases-3-7-status.md).
 
 ## Architecture
 
@@ -71,7 +71,7 @@ Sessions use HttpOnly, SameSite=Strict cookies, Secure in production, with an ei
 
 Anonymous requests return `401`; insufficient privileges return `403`, without HTML redirects. Login failures do not reveal whether an account exists. Login allows 20 requests per IP per minute; five failed password attempts lock an account for 15 minutes. Session expiry and logout clear private query data. Ordinary logout removes this browser's cookie; immediate revocation of a copied cookie would require additional session tracking.
 
-Admin and Staff can edit the catalog; Viewer has read-only access. The API enforces these permissions independently of the UI. Purchasing/sales permissions will be added with those features.
+Admin and Staff can edit catalogs, post adjustments, and operate purchasing/sales. Viewer has read-only access, including reports. The API enforces these permissions independently of the UI.
 
 OpenAPI JSON: `/openapi/v1.json` in Development. Console logs use JSON; errors use Problem Details; API responses are not cached.
 
@@ -92,6 +92,30 @@ SKUs are trimmed, uppercased, and unique across active and inactive products. Th
 
 The migration seeds one Main warehouse. Product creation atomically creates one zero-stock balance. Catalog edits never change stock. Deactivation preserves records and balances; there is no delete endpoint. New category assignments require an active category, while existing products can retain a deactivated category. Stale edits return `409` and offer a reload in the editor.
 
+## Inventory, purchasing, sales, and reports
+
+| Endpoint | Behavior |
+| --- | --- |
+| `GET /api/inventory/balances` | Paged stock; filters `q`, `productId`, `lowStockOnly` |
+| `GET /api/inventory/movements` | Paged journal, newest first; filters `q`, `productId` |
+| `POST /api/inventory/adjustments` | Signed nonzero quantity change, reason, product ID, stock version, request ID |
+| `GET /api/orders/{kind}` | Paged purchase/sales list; `kind` is `purchases` or `sales`; filters `q`, `status` |
+| `GET /api/orders/{kind}/{id}` | Order details, quantities, prices, and current version |
+| `POST /api/orders/{kind}` | Create draft with party ID, distinct product lines, and request ID |
+| `POST /api/orders/{kind}/{id}/confirm` | Confirm a draft with current version and request ID |
+| `POST /api/orders/{kind}/{id}/cancel` | Cancel an unprocessed draft/confirmed order |
+| `POST /api/orders/purchases/{id}/receive` | Receive selected outstanding line quantities with delivery reference |
+| `POST /api/orders/sales/{id}/ship` | Ship selected outstanding line quantities with shipment reference |
+| `GET /api/reports/summary` | Current stock/open orders and UTC activity for inclusive `from`/`to` dates (up to 366 days) |
+
+Every write requires Admin/Staff and a fresh CSRF token. Order/stock mutations also require a nonempty `requestId`. Reuse that ID with the exact same payload when retrying an uncertain result. Reusing an ID with different data or another actor returns 409. Concurrent or stale writes return 409; reload and review before submitting another operation.
+
+Order states are Draft → Confirmed → Partial → Completed. A full delivery may move Confirmed directly to Completed. Draft or Confirmed orders may be Cancelled only before any delivery. Sales confirmation does not reserve stock; availability is enforced during shipping. Orders, stock changes, history, and idempotency receipts commit atomically.
+
+Only stock workflows change quantities. History cannot be edited or deleted through the application; corrections create new adjustments. Orders retain their original prices and product/contact labels. Draft line editing, returns, taxes, payments, multi-warehouse management, and accounting valuation are deferred.
+
+See [demo guide](docs/demo-guide.md) for an end-to-end example and [deployment guide](docs/deployment.md) for the Docker/HTTPS workflow.
+
 ## Verification
 
 ```bash
@@ -102,9 +126,9 @@ This restores locked dependencies, builds and tests the backend, checks migratio
 
 Backend tests use isolated SQLite by default. Set `TEST_SQLSERVER_CONNECTION_STRING` to a dedicated test SQL Server to test real migrations and behavior. Each test creates and deletes a unique `StockPilotTest_<guid>` database, requiring create/drop database permissions. Never point tests at a production server.
 
-GitHub Actions is configured to run backend tests against SQL Server 2022, check for a missing migration, check the frontend, publish the application, and test HTTPS login/logout plus the catalog workflow against the published build. CI database credentials are disposable and scoped to its isolated service.
+GitHub Actions is configured to run backend tests against SQL Server 2022, check for a missing migration, check the frontend, publish the application, and test the complete HTTPS business workflow against the published build, and build the production container. CI database credentials are disposable and scoped to its isolated service.
 
-See [docs/phase-2-status.md](docs/phase-2-status.md) for current evidence and outstanding checks, and [docs/phase-1-status.md](docs/phase-1-status.md) for the authentication follow-up. A configured workflow is not a completed remote run.
+See [docs/phases-3-7-status.md](docs/phases-3-7-status.md) for current evidence and outstanding checks. Earlier [Phase 2](docs/phase-2-status.md) and [Phase 1](docs/phase-1-status.md) reports are historical snapshots. A configured workflow is not a completed remote run.
 
 ## Publishing
 
@@ -137,4 +161,4 @@ The integration suite creates/deletes its own unique databases. The HTTPS smoke 
 
 Build one vertical feature at a time, keep JavaScript throughout the frontend, and commit logically after relevant checks. Once acceptance checks pass and blocking defects are fixed, move additional ideas to the backlog.
 
-Next acceptance gate: run the SQL Server suite and published HTTPS smoke check. The next feature phase can then build stock movements and purchasing on the catalog foundation.
+Next acceptance gate: run the SQL Server suite, published HTTPS smoke check, and container build/run; then provision and verify a deployment host. Each phase has separate logical commits in Git history.
