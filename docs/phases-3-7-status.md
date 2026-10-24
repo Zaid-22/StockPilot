@@ -14,7 +14,30 @@ Phases 3–6 are implemented and committed locally. Phase 7's container, CI/smok
 
 `981e6c9` additionally preserves UTC timestamps after database reads and guards journal/receipt immutability through synchronous and asynchronous EF saves.
 
-## Verified in this session
+## Review fixes and current verification
+
+The three retry findings are fixed in separate logical commits:
+
+- `05f3963`: unreadable successful responses remain uncertain, so order creation retries reuse the original request.
+- `a31ca20`: unresolved order/stock commands survive later retry failures, including a rejected CSRF request.
+- `3694eab`: catalog creation requires a client request ID and atomically saves the record, product balance when applicable, and original response. The editor keeps unresolved creations locked for retry. The obsolete inventory-phase message is corrected.
+
+Current local checks after these fixes:
+
+| Check | Evidence |
+| --- | --- |
+| Backend Release build | Passed; zero warnings/errors |
+| Backend integration suite | **62 passed, 0 failed, 1 skipped** using SQLite and the in-process xUnit runner |
+| Frontend suite | **45 passed** across 8 files |
+| ESLint and frontend production build | Passed; existing bundle-size advisory remains |
+| Combined React/.NET Release publish | Passed; output at `artifacts/app` |
+| Smoke script syntax | Python and shell checks passed; live HTTPS execution pending |
+| SQL Server and Docker runtime | Not verified: this session is denied access to the Docker socket, and no dedicated SQL Server test connection is configured |
+| EF migration consistency recheck | Not completed: the pinned `dotnet-ef` tool needs restoring. These fixes do not change entity mappings or database schema. |
+
+Catalog POST clients must now supply a nonempty `requestId`; the frontend, integration fixtures, and published smoke workflow have been updated. Updates still use optimistic versions. Unresolved UI requests remain in memory in their open form; reload/navigation recovery is not persisted.
+
+## Earlier phase verification
 
 | Check | Evidence |
 | --- | --- |
@@ -36,12 +59,12 @@ Browser layout checks used deterministic sample API responses. They establish re
 
 ## Remaining acceptance work
 
-1. **SQL Server:** run the complete suite against a dedicated test server. This applies real migrations and runs the parallel-shipment test. The local Docker daemon was unavailable; opening the detected Docker application failed with a missing-executable error. No SQL Server test connection was supplied.
+1. **SQL Server:** run the complete suite against a dedicated test server. This applies real migrations and runs the parallel-shipment test. The user reports Docker running, but the current session receives permission denied connecting to its socket. No SQL Server test connection was supplied.
 2. **Published HTTPS:** run `scripts/smoke-published.sh` against a disposable SQL Server database. The expanded workflow is prepared, not claimed to have run.
 3. **Container:** build and run the image with a real certificate, database connection, and persistent key volume. Compose configuration validation is not a container build/run.
 4. **Standard runner:** the VSTest invocation did not produce a completed result in this session. Use the recorded in-process result as local evidence; CI remains configured to use the standard runner.
 5. **.NET dependency audit:** the online package-vulnerability query timed out. Repository audit settings remain enabled. The installed global EF tool is 10.0.10; the checked-in manifest pins 10.0.13. Restore the pinned tool in an online environment.
-6. **GitHub/host:** no remote repository, remote CI run, public domain, database hosting, or live deployment was configured. Follow [deployment instructions](deployment.md) after choosing the actual host.
+6. **GitHub/host:** `origin` points to `https://github.com/Zaid-22/StockPilot.git`. The review fixes are committed locally; no successful push, remote CI run, public domain, database hosting, or live deployment is verified here. Follow [deployment instructions](deployment.md) after choosing the actual host.
 
 The frontend still emits a bundle-size advisory for its approximately 658 kB main chunk before compression. Pages are lazy-loaded; further framework/vendor optimization is a backlog item, not an unverified performance claim.
 
