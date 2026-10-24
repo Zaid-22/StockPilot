@@ -1,33 +1,31 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
 import { apiMutation, apiRequest } from '../../lib/api'
+import { useIdempotentMutation } from '../../lib/useIdempotentMutation'
 
 export default function OrderDetails({ kind, id, editable, onClose }) {
   const cache = useQueryClient()
   const [action, setAction] = useState('')
   const [quantities, setQuantities] = useState({})
   const [reference, setReference] = useState('')
-  const [attempt, setAttempt] = useState(null)
   const purchase = kind === 'purchases'
   const query = useQuery({ queryKey: ['order', kind, id], queryFn: () => apiRequest(`/orders/${kind}/${id}`) })
-  const mutation = useMutation({ mutationFn: request => apiMutation(request.path, request.body), onSuccess: async () => {
-    setAction(''); setQuantities({}); setReference(''); setAttempt(null)
+  const mutation = useIdempotentMutation({ mutationFn: request => apiMutation(request.path, request.body), onSuccess: async () => {
+    setAction(''); setQuantities({}); setReference('')
     await cache.invalidateQueries()
   } })
   const order = query.data
-  const uncertain = mutation.error && (mutation.error.status === 0 || mutation.error.status >= 500)
-  const locked = mutation.isPending || uncertain
+  const { uncertain, locked } = mutation
   const fulfillment = action === 'receive' || action === 'ship'
   const positive = Object.entries(quantities).filter(([, value]) => Number(value) > 0)
   const valid = !fulfillment || (reference.trim() && positive.length && Object.values(quantities).every(value => Number.isInteger(Number(value)) && Number(value) >= 0))
   function submit(event) {
     event.preventDefault()
-    const request = uncertain ? attempt : { path: `/orders/${kind}/${id}/${action}`, body: {
+    mutation.submit(() => ({ path: `/orders/${kind}/${id}/${action}`, body: {
       requestId: crypto.randomUUID(), version: order.version,
       ...(fulfillment ? { reference, lines: positive.map(([lineId, quantity]) => ({ lineId, quantity: Number(quantity) })) } : {}),
-    } }
-    setAttempt(request); mutation.mutate(request)
+    } }))
   }
   return <Dialog open fullWidth maxWidth="md" onClose={locked ? undefined : onClose}><DialogTitle>{order?.number || 'Order details'}</DialogTitle><DialogContent>
     {query.isPending && <Typography role="status">Loading order…</Typography>}

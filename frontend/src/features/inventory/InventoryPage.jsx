@@ -1,25 +1,22 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TablePagination, TableRow, TextField, Typography } from '@mui/material'
 import { apiMutation, apiRequest } from '../../lib/api'
+import { useIdempotentMutation } from '../../lib/useIdempotentMutation'
 import { useAuth } from '../auth/authContext'
 
 function AdjustmentDialog({ balance, onClose }) {
   const cache = useQueryClient()
   const [quantity, setQuantity] = useState('')
   const [reason, setReason] = useState('')
-  const [attempt, setAttempt] = useState(null)
-  const mutation = useMutation({ mutationFn: body => apiMutation('/inventory/adjustments', body), onSuccess: async () => {
+  const mutation = useIdempotentMutation({ mutationFn: body => apiMutation('/inventory/adjustments', body), onSuccess: async () => {
     await cache.invalidateQueries()
     onClose()
   } })
-  const uncertain = mutation.error && (mutation.error.status === 0 || mutation.error.status >= 500)
-  const locked = mutation.isPending || uncertain
+  const { uncertain, locked } = mutation
   function submit(event) {
     event.preventDefault()
-    const body = uncertain ? attempt : { requestId: crypto.randomUUID(), productId: balance.productId, version: balance.version, quantityChange: Number(quantity), reason: reason.trim() }
-    setAttempt(body)
-    mutation.mutate(body)
+    mutation.submit(() => ({ requestId: crypto.randomUUID(), productId: balance.productId, version: balance.version, quantityChange: Number(quantity), reason: reason.trim() }))
   }
   return <Dialog open onClose={locked ? undefined : onClose} fullWidth maxWidth="sm">
     <Box component="form" onSubmit={submit}>

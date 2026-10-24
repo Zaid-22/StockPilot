@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Alert, Autocomplete, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material'
 import { apiMutation, apiRequest } from '../../lib/api'
+import { useIdempotentMutation } from '../../lib/useIdempotentMutation'
 
 function CatalogPicker({ kind, label, value, onChange, disabled }) {
   const [q, setQ] = useState('')
@@ -19,16 +20,13 @@ export default function OrderEditor({ kind, onClose, onSaved }) {
   const [party, setParty] = useState(null)
   const [notes, setNotes] = useState('')
   const [lines, setLines] = useState([{ key: crypto.randomUUID(), product: null, quantity: '1', unitPrice: '0' }])
-  const [attempt, setAttempt] = useState(null)
-  const mutation = useMutation({ mutationFn: body => apiMutation(`/orders/${kind}`, body), onSuccess: onSaved })
-  const uncertain = mutation.error && (mutation.error.status === 0 || mutation.error.status >= 500)
-  const locked = mutation.isPending || uncertain
+  const mutation = useIdempotentMutation({ mutationFn: body => apiMutation(`/orders/${kind}`, body), onSuccess: onSaved })
+  const { uncertain, locked } = mutation
   const valid = party && lines.every(x => x.product && Number.isInteger(Number(x.quantity)) && Number(x.quantity) > 0 && Number(x.quantity) <= 1000000 && /^\d+(\.\d{1,3})?$/.test(x.unitPrice) && Number(x.unitPrice) <= 999999999.999)
   const update = (key, patch) => setLines(rows => rows.map(row => row.key === key ? { ...row, ...patch } : row))
   function submit(event) {
     event.preventDefault()
-    const body = uncertain ? attempt : { requestId: crypto.randomUUID(), partyId: party.id, notes, lines: lines.map(x => ({ productId: x.product.id, quantity: Number(x.quantity), unitPrice: Number(x.unitPrice) })) }
-    setAttempt(body); mutation.mutate(body)
+    mutation.submit(() => ({ requestId: crypto.randomUUID(), partyId: party.id, notes, lines: lines.map(x => ({ productId: x.product.id, quantity: Number(x.quantity), unitPrice: Number(x.unitPrice) })) }))
   }
   return <Dialog open fullWidth maxWidth="md" onClose={locked ? undefined : onClose}><Box component="form" onSubmit={submit}>
     <DialogTitle>New {purchase ? 'purchase' : 'sales'} order</DialogTitle><DialogContent><Stack spacing={3} sx={{ pt: 1 }}>
