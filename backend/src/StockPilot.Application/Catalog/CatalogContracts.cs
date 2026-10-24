@@ -21,6 +21,7 @@ public sealed record ProductDto(Guid Id, string Sku, string Name, string? Descri
 
 public sealed class ReferenceInput
 {
+    public Guid RequestId { get; set; }
     [Required, MaxLength(160)] public string Name { get; set; } = "";
     [EmailAddress, MaxLength(256)] public string? Email { get; set; }
     [MaxLength(40)] public string? Phone { get; set; }
@@ -31,6 +32,7 @@ public sealed class ReferenceInput
 
 public sealed class ProductInput : IValidatableObject
 {
+    public Guid RequestId { get; set; }
     [Required, MaxLength(64)] public string Sku { get; set; } = "";
     [Required, MaxLength(160)] public string Name { get; set; } = "";
     [MaxLength(2000)] public string? Description { get; set; }
@@ -52,8 +54,8 @@ public interface ICatalogService
 {
     Task<PageResult<ProductDto>> ProductsAsync(CatalogQuery query, CancellationToken ct);
     Task<ProductDto> ProductAsync(Guid id, CancellationToken ct);
-    Task<ProductDto> SaveProductAsync(Guid? id, ProductInput input, CancellationToken ct);
+    Task<ProductDto> SaveProductAsync(Guid? id, ProductInput input, string actorId, CancellationToken ct);
     Task<PageResult<ReferenceDto>> ReferencesAsync(ReferenceKind kind, CatalogQuery query, CancellationToken ct);
     Task<ReferenceDto> ReferenceAsync(ReferenceKind kind, Guid id, CancellationToken ct);
-    Task<ReferenceDto> SaveReferenceAsync(ReferenceKind kind, Guid? id, ReferenceInput input, CancellationToken ct);
+    Task<ReferenceDto> SaveReferenceAsync(ReferenceKind kind, Guid? id, ReferenceInput input, string actorId, CancellationToken ct);
 }

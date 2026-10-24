@@ -32,11 +32,11 @@ public abstract class WorkflowFixture : IAsyncLifetime
         Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         return (await response.Content.ReadFromJsonAsync<T>())!;
     }
-    protected Task<ReferenceDto> Contact(string kind) => Post<ReferenceDto>("/api/catalog/" + kind, new { name = "Test " + Guid.NewGuid() });
+    protected Task<ReferenceDto> Contact(string kind) => Post<ReferenceDto>("/api/catalog/" + kind, new { requestId = Guid.NewGuid(), name = "Test " + Guid.NewGuid() });
     protected async Task<ProductDto> Product()
     {
         var category = await Contact("categories");
-        return await Post<ProductDto>("/api/catalog/products", new { name = "Test product", sku = "SKU-" + Guid.NewGuid().ToString("N"), categoryId = category.Id, sellingPrice = 12.125m, reorderLevel = 3 });
+        return await Post<ProductDto>("/api/catalog/products", new { requestId = Guid.NewGuid(), name = "Test product", sku = "SKU-" + Guid.NewGuid().ToString("N"), categoryId = category.Id, sellingPrice = 12.125m, reorderLevel = 3 });
     }
     protected async Task<BalanceDto> Balance(Guid productId) => Assert.Single((await Client.GetFromJsonAsync<PageResult<BalanceDto>>("/api/inventory/balances?productId=" + productId))!.Items);
     protected async Task<AdjustmentResult> AddStock(Guid productId, int quantity) => await Post<AdjustmentResult>("/api/inventory/adjustments", new AdjustmentInput

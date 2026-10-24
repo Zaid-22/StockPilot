@@ -83,7 +83,7 @@ Create an active category, then create a product from **Products → Add product
 | --- | --- |
 | `GET /api/catalog/{kind}` | Search/filter/pagination for `products`, `categories`, `suppliers`, `customers` |
 | `GET /api/catalog/{kind}/{id}` | Record details |
-| `POST /api/catalog/{kind}` | Create; Admin/Staff and fresh CSRF token required |
+| `POST /api/catalog/{kind}` | Create; Admin/Staff, fresh CSRF token, and nonempty `requestId` required |
 | `PUT /api/catalog/{kind}/{id}` | Edit, deactivate, or reactivate; Admin/Staff, CSRF, and current `version` required |
 
 List parameters: `q`, `isActive`, `page` (default 1), `pageSize` (default 20, maximum 100), and `categoryId` for products. Responses contain `items`, `totalCount`, `page`, and `pageSize`.
@@ -91,6 +91,8 @@ List parameters: `q`, `isActive`, `page` (default 1), `pageSize` (default 20, ma
 SKUs are trimmed, uppercased, and unique across active and inactive products. They accept 1–64 ASCII letters/numbers/dots/underscores/hyphens, starting with a letter or number. Category names are normalized and unique. Prices are non-negative decimals with up to three decimal places; quantities and reorder levels are whole numbers.
 
 The migration seeds one Main warehouse. Product creation atomically creates one zero-stock balance. Catalog edits never change stock. Deactivation preserves records and balances; there is no delete endpoint. New category assignments require an active category, while existing products can retain a deactivated category. Stale edits return `409` and offer a reload in the editor.
+
+Catalog creation saves its original response atomically with the record (and product balance). Retry an uncertain creation with the same `requestId` and payload to retrieve that response without another insert. The same ID with another payload, catalog kind, or actor returns `409`. Catalog updates continue to use `version`; they do not require a request ID. Clients that create catalog records must now send a request ID.
 
 ## Inventory, purchasing, sales, and reports
 
@@ -109,6 +111,8 @@ The migration seeds one Main warehouse. Product creation atomically creates one 
 | `GET /api/reports/summary` | Current stock/open orders and UTC activity for inclusive `from`/`to` dates (up to 366 days) |
 
 Every write requires Admin/Staff and a fresh CSRF token. Order/stock mutations also require a nonempty `requestId`. Reuse that ID with the exact same payload when retrying an uncertain result. Reusing an ID with different data or another actor returns 409. Concurrent or stale writes return 409; reload and review before submitting another operation.
+
+The UI preserves unresolved order, stock, and catalog creation requests across subsequent retry failures. A failed retry or CSRF fetch does not establish whether the original write committed. Retry the original request until its result is returned. Pending requests are held in the open form; reloading or leaving the application discards that local retry state, so inspect existing records before starting a replacement operation.
 
 Order states are Draft → Confirmed → Partial → Completed. A full delivery may move Confirmed directly to Completed. Draft or Confirmed orders may be Cancelled only before any delivery. Sales confirmation does not reserve stock; availability is enforced during shipping. Orders, stock changes, history, and idempotency receipts commit atomically.
 

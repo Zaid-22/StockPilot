@@ -6,10 +6,11 @@ using StockPilot.Application.Catalog;
 using StockPilot.Application.Common;
 using StockPilot.Domain.Catalog;
 using StockPilot.Infrastructure.Data;
+using StockPilot.Infrastructure.Inventory;
 
 namespace StockPilot.Infrastructure.Catalog;
 
-public sealed partial class CatalogService(ApplicationDbContext db) : ICatalogService
+public sealed partial class CatalogService(ApplicationDbContext db, OperationExecutor operations) : ICatalogService
 {
     private static readonly Expression<Func<Product, ProductDto>> ProductProjection = p => new(
         p.Id, p.Sku, p.Name, p.Description, p.CategoryId, p.Category.Name, p.SellingPrice,
@@ -35,7 +36,12 @@ public sealed partial class CatalogService(ApplicationDbContext db) : ICatalogSe
         await db.Set<Product>().AsNoTracking().Where(p => p.Id == id).Select(ProductProjection).SingleOrDefaultAsync(ct)
         ?? throw new BusinessException(404, "Product not found.");
 
-    public async Task<ProductDto> SaveProductAsync(Guid? id, ProductInput input, CancellationToken ct)
+    public Task<ProductDto> SaveProductAsync(Guid? id, ProductInput input, string actorId, CancellationToken ct) =>
+        id.HasValue ? SaveProductCoreAsync(id, input, ct)
+            : operations.ExecuteAsync(input.RequestId, actorId, "create-catalog-product", input,
+                () => SaveProductCoreAsync(null, input, ct), ct);
+
+    private async Task<ProductDto> SaveProductCoreAsync(Guid? id, ProductInput input, CancellationToken ct)
     {
         var sku = input.Sku.Trim().ToUpperInvariant();
         if (!SkuPattern().IsMatch(sku)) throw new BusinessException(400, "SKU must use 1–64 letters, numbers, dots, underscores or hyphens, starting with a letter or number.");
@@ -62,8 +68,10 @@ public sealed partial class CatalogService(ApplicationDbContext db) : ICatalogSe
         {
             product.Balances.Add(new InventoryBalance { ProductId = product.Id, WarehouseId = Warehouse.MainId });
             db.Add(product);
+            // OperationExecutor commits the product, zero balance, and retry result together.
+            return new(product.Id, product.Sku, product.Name, product.Description, category.Id, category.Name,
+                product.SellingPrice, product.ReorderLevel, product.IsActive, product.Version, 0);
         }
-        // Product and its initial zero balance are saved in one transaction.
         await SaveAsync(ct);
         return await ProductAsync(product.Id, ct);
     }
@@ -82,7 +90,12 @@ public sealed partial class CatalogService(ApplicationDbContext db) : ICatalogSe
         ReferenceKind.Customers => GetAsync<Customer>(id, ct),
         _ => throw new BusinessException(404, "Catalog not found.")
     };
-    public Task<ReferenceDto> SaveReferenceAsync(ReferenceKind kind, Guid? id, ReferenceInput input, CancellationToken ct) => kind switch
+    public Task<ReferenceDto> SaveReferenceAsync(ReferenceKind kind, Guid? id, ReferenceInput input, string actorId, CancellationToken ct) =>
+        id.HasValue ? SaveReferenceCoreAsync(kind, id, input, ct)
+            : operations.ExecuteAsync(input.RequestId, actorId, $"create-catalog-{kind}", input,
+                () => SaveReferenceCoreAsync(kind, null, input, ct), ct);
+
+    private Task<ReferenceDto> SaveReferenceCoreAsync(ReferenceKind kind, Guid? id, ReferenceInput input, CancellationToken ct) => kind switch
     {
         ReferenceKind.Categories => SaveRecordAsync<Category>(id, input, ct),
         ReferenceKind.Suppliers => SaveRecordAsync<Supplier>(id, input, ct),
@@ -130,7 +143,7 @@ public sealed partial class CatalogService(ApplicationDbContext db) : ICatalogSe
             contact.Address = Clean(input.Address);
         }
         if (!id.HasValue) db.Add(record);
-        await SaveAsync(ct);
+        else await SaveAsync(ct);
         return ToDto(record);
     }
 

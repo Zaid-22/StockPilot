@@ -50,6 +50,8 @@ assert request('/api/admin/users').status == 200
 
 
 def mutate(path, payload, method='POST', expected=200):
+    if method == 'POST' and path.startswith('/api/catalog/'):
+        payload = {'requestId': str(uuid.uuid4()), **payload}
     csrf = json.load(request('/api/auth/csrf'))['token']
     response = request(path, payload, csrf, method)
     assert response.status == expected, (response.status, response.read())
@@ -78,9 +80,12 @@ deactivated = mutate(path, {**update, 'version': updated['version'], 'isActive':
 assert not deactivated['isActive'] and deactivated['quantityOnHand'] == 0
 assert json.load(request(path))['name'] == 'Updated keyboard'
 for kind in ['suppliers', 'customers']:
-    contact = mutate('/api/catalog/' + kind, {
+    contact_input = {
+        'requestId': str(uuid.uuid4()),
         'name': f'Smoke {prefix}', 'email': 'smoke@example.test', 'phone': '12345',
-    }, expected=201)
+    }
+    contact = mutate('/api/catalog/' + kind, contact_input, expected=201)
+    assert mutate('/api/catalog/' + kind, contact_input, expected=201) == contact
     saved = mutate(f'/api/catalog/{kind}/{contact["id"]}', {
         **contact, 'address': 'Amman', 'isActive': False,
     }, 'PUT')

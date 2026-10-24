@@ -32,5 +32,9 @@ export function useIdempotentMutation({ mutationFn, onSuccess }) {
     mutation.mutate(attempt.current.request)
   }
 
-  return { ...mutation, submit, uncertain, locked: mutation.isPending || uncertain }
+  function retry() {
+    if (attempt.current) submit(() => attempt.current.request)
+  }
+
+  return { ...mutation, submit, retry, uncertain, locked: mutation.isPending || uncertain }
 }

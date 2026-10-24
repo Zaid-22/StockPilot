@@ -11,20 +11,31 @@ const category = { id: categoryId, name: 'Electronics', isActive: true, version 
 const product = { id: productId, name: 'Keyboard', sku: 'KEY-001', categoryId, categoryName: 'Electronics', sellingPrice: 25.125, reorderLevel: 3, quantityOnHand: 0, description: '', isActive: true, version }
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } })
 
-function server({ role = 'Staff', kind = 'products', initial = [], failSave = false, total = null } = {}) {
+function server({ role = 'Staff', kind = 'products', initial = [], failSave = false, lostCreation = false, failRetryCsrf = false, total = null } = {}) {
   let records = initial
+  let csrfCalls = 0
+  const receipts = new Map()
   const fetch = vi.fn(async (raw, options = {}) => {
     const url = new URL(raw, 'http://localhost')
     if (url.pathname === '/api/auth/me') return json({ id: '1', email: 'staff@example.test', displayName: 'Staff', roles: [role] })
-    if (url.pathname === '/api/auth/csrf') return json({ token: 'csrf' })
+    if (url.pathname === '/api/auth/csrf') {
+      csrfCalls++
+      if (failRetryCsrf && csrfCalls === 2) return json({ title: 'CSRF temporarily unavailable' }, 400)
+      return json({ token: 'csrf' })
+    }
     if (url.pathname === '/api/catalog/settings') return json({ currency: 'JOD' })
     if (url.pathname === '/api/catalog/categories' && kind !== 'categories') return json({ items: [category], totalCount: 1, page: 1, pageSize: 100 })
     if (url.pathname.startsWith(`/api/catalog/${kind}`)) {
       if (options.method === 'POST' || options.method === 'PUT') {
         if (failSave) return json({ detail: 'This SKU is already used.' }, 409)
         const data = JSON.parse(options.body)
+        if (options.method === 'POST' && receipts.has(data.requestId)) return json(receipts.get(data.requestId), 201)
         const saved = { ...data, id: data.id || (kind === 'products' ? productId : categoryId), version, quantityOnHand: 0, categoryName: category.name }
         records = options.method === 'POST' ? [...records, saved] : records.map(r => r.id === saved.id || raw.endsWith(r.id) ? { ...saved, id: r.id } : r)
+        if (options.method === 'POST') {
+          receipts.set(data.requestId, saved)
+          if (lostCreation) return new Response('{', { status: 201, headers: { 'Content-Type': 'application/json' } })
+        }
         return json(saved, options.method === 'POST' ? 201 : 200)
       }
       if (url.pathname.split('/').length === 5) return json(records.find(r => raw.endsWith(r.id)))
@@ -122,4 +133,29 @@ it('rejects invalid price precision and fractional reorder quantities before sub
   const result = productSchema.safeParse(values)
   expect(result.success).toBe(false)
   expect(result.error.issues.map(issue => issue.path[0])).toEqual(expect.arrayContaining(['sellingPrice', 'reorderLevel']))
+})
+
+it.each([['suppliers', 'supplier'], ['customers', 'customer'], ['categories', 'category']])('safely retries %s creation across a lost response and rejected preflight', async (kind, singular) => {
+  window.history.replaceState(null, '', `/catalog/${kind}`)
+  const fetch = server({ kind, lostCreation: true, failRetryCsrf: true })
+  const user = userEvent.setup(); render(<App />)
+  await user.click(await screen.findByRole('button', { name: `Add ${singular}` }))
+  const dialog = within(screen.getByRole('dialog'))
+  await user.type(dialog.getByRole('textbox', { name: /^Name/ }), 'Example company')
+  await user.click(dialog.getByRole('button', { name: 'Save' }))
+  expect(await dialog.findByRole('alert')).toHaveTextContent('Result unknown')
+  expect(dialog.getByRole('textbox', { name: /^Name/ })).toBeDisabled()
+  expect(dialog.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+  await user.keyboard('{Escape}')
+  expect(screen.getByRole('dialog')).toBeInTheDocument()
+  await user.click(dialog.getByRole('button', { name: 'Retry creation' }))
+  expect(await dialog.findByText(/CSRF temporarily unavailable/)).toHaveTextContent('Result unknown')
+  expect(dialog.getByRole('textbox', { name: /^Name/ })).toBeDisabled()
+  await user.click(dialog.getByRole('button', { name: 'Retry creation' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  const writes = fetch.mock.calls.filter(([url, options]) => url === `/api/catalog/${kind}` && options.method === 'POST')
+  expect(writes).toHaveLength(2)
+  expect(JSON.parse(writes[0][1].body).requestId).toBeTruthy()
+  expect(writes[0][1].body).toBe(writes[1][1].body)
+  expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(2)
 })

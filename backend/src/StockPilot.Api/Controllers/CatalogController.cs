@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using StockPilot.Application.Catalog;
@@ -9,6 +10,7 @@ namespace StockPilot.Api.Controllers;
 [ApiController, Route("api/catalog")]
 public sealed class CatalogController(ICatalogService catalog) : ControllerBase
 {
+    private string ActorId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
     private const string Editors = Roles.Admin + "," + Roles.Staff;
     [HttpGet("products")]
     public Task<PageResult<ProductDto>> Products([FromQuery] CatalogQuery query, CancellationToken ct) => catalog.ProductsAsync(query, ct);
@@ -17,11 +19,11 @@ public sealed class CatalogController(ICatalogService catalog) : ControllerBase
     [HttpPost("products"), Authorize(Roles = Editors)]
     public async Task<ActionResult<ProductDto>> CreateProduct(ProductInput input, CancellationToken ct)
     {
-        var product = await catalog.SaveProductAsync(null, input, ct);
+        var product = await catalog.SaveProductAsync(null, input, ActorId, ct);
         return CreatedAtAction(nameof(Product), new { id = product.Id }, product);
     }
     [HttpPut("products/{id:guid}"), Authorize(Roles = Editors)]
-    public Task<ProductDto> UpdateProduct(Guid id, ProductInput input, CancellationToken ct) => catalog.SaveProductAsync(id, input, ct);
+    public Task<ProductDto> UpdateProduct(Guid id, ProductInput input, CancellationToken ct) => catalog.SaveProductAsync(id, input, ActorId, ct);
 
     [HttpGet("{kind:regex(^(categories|suppliers|customers)$)}")]
     public Task<PageResult<ReferenceDto>> References(string kind, [FromQuery] CatalogQuery query, CancellationToken ct) => catalog.ReferencesAsync(Kind(kind), query, ct);
@@ -30,10 +32,10 @@ public sealed class CatalogController(ICatalogService catalog) : ControllerBase
     [HttpPost("{kind:regex(^(categories|suppliers|customers)$)}"), Authorize(Roles = Editors)]
     public async Task<ActionResult<ReferenceDto>> CreateReference(string kind, ReferenceInput input, CancellationToken ct)
     {
-        var entry = await catalog.SaveReferenceAsync(Kind(kind), null, input, ct);
+        var entry = await catalog.SaveReferenceAsync(Kind(kind), null, input, ActorId, ct);
         return CreatedAtAction(nameof(Reference), new { kind, id = entry.Id }, entry);
     }
     [HttpPut("{kind:regex(^(categories|suppliers|customers)$)}/{id:guid}"), Authorize(Roles = Editors)]
-    public Task<ReferenceDto> UpdateReference(string kind, Guid id, ReferenceInput input, CancellationToken ct) => catalog.SaveReferenceAsync(Kind(kind), id, input, ct);
+    public Task<ReferenceDto> UpdateReference(string kind, Guid id, ReferenceInput input, CancellationToken ct) => catalog.SaveReferenceAsync(Kind(kind), id, input, ActorId, ct);
     private static ReferenceKind Kind(string value) => Enum.Parse<ReferenceKind>(value, true);
 }
