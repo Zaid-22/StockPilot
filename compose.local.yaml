@@ -1,0 +1,49 @@
+# Local development only. SQL Server runs as amd64; Apple Silicon requires
+# Docker's x86 emulation. This setup is not production acceptance evidence.
+name: stockpilot-local
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: 'Y'
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${LOCAL_DB_PASSWORD:?Run scripts/start-local.sh}
+    volumes:
+      - local-db:/var/opt/mssql
+    healthcheck:
+      test: ['CMD-SHELL', '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$${MSSQL_SA_PASSWORD}" -C -Q "SELECT 1" -b > /dev/null']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+  initialize:
+    image: stockpilot:local-dev
+    build: .
+    command: ['--initialize']
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__StockPilot: Server=db,1433;Database=StockPilotLocal;User Id=sa;Password=${LOCAL_DB_PASSWORD};Encrypt=true;TrustServerCertificate=true
+      Bootstrap__AdminEmail: ${LOCAL_ADMIN_EMAIL:?Run scripts/start-local.sh}
+      Bootstrap__AdminPassword: ${LOCAL_ADMIN_PASSWORD:?Run scripts/start-local.sh}
+    depends_on:
+      db:
+        condition: service_healthy
+  app:
+    image: stockpilot:local-dev
+    build: .
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      AllowedHosts: localhost;127.0.0.1
+      ConnectionStrings__StockPilot: Server=db,1433;Database=StockPilotLocal;User Id=sa;Password=${LOCAL_DB_PASSWORD};Encrypt=true;TrustServerCertificate=true
+    ports:
+      - '127.0.0.1:5080:8080'
+    volumes:
+      - local-keys:/var/stockpilot/keys
+    depends_on:
+      initialize:
+        condition: service_completed_successfully
+volumes:
+  local-db:
+  local-keys:

@@ -55,6 +55,26 @@ Open `http://localhost:5173`. Vite proxies `/api` to `http://localhost:5080`, pr
 
 Bootstrap never resets an existing admin password or promotes an existing non-admin. Run initialization serially. Public signup and account creation/editing screens are outside this phase; the directory is read-only.
 
+## Optional local Docker launcher
+
+From an ordinary Mac Terminal with Docker access, run:
+
+```bash
+bash scripts/start-local.sh
+```
+
+This builds the combined frontend/backend image, starts a dedicated SQL Server Developer container, initializes `StockPilotLocal`, and exposes the app on `http://127.0.0.1:5080/`. The Vite frontend on port 5173 proxies to this backend too. Generated development credentials are stored in the ignored `.env.local` file; use `LOCAL_ADMIN_EMAIL` and `LOCAL_ADMIN_PASSWORD` to sign in. Keep that file private and retain it with the database volume. Bootstrap does not reset existing passwords.
+
+This is a local development configuration using HTTP, a development database administrator, and a private Docker network. SQL Server is an amd64 image; Apple Silicon uses x86 emulation and may encounter compatibility/resource limitations. If SQL Server cannot start, use the external SQL Server setup above. This stack has passed configuration validation only; container build/run remains unverified in the agent session because Docker socket access is denied.
+
+Stop without deleting database data:
+
+```bash
+docker compose --env-file .env.local -f compose.local.yaml down
+```
+
+Inspect startup failures with `docker compose --env-file .env.local -f compose.local.yaml logs --tail=100`. Port 5080 must be free. Do not use this local configuration for public hosting; follow the HTTPS deployment guide instead.
+
 ## Authentication and API
 
 | Endpoint | Access / behavior |
