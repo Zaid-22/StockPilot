@@ -1,7 +1,8 @@
 import { lazy, Suspense, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, Link } from 'react-router-dom'
-import { Alert, Box, Button, CircularProgress, CssBaseline, ThemeProvider, Typography, createTheme } from '@mui/material'
+import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material'
+import AppearanceProvider from './components/AppearanceProvider'
 import AuthProvider from './features/auth/AuthProvider'
 import { useAuth } from './features/auth/authContext'
 import LoginPage from './features/auth/LoginPage'
@@ -13,13 +14,6 @@ const InventoryPage = lazy(() => import('./features/inventory/InventoryPage'))
 const OrdersPage = lazy(() => import('./features/orders/OrdersPage'))
 
 const ReportsPage = lazy(() => import('./features/reports/ReportsPage'))
-
-const theme = createTheme({
-  palette: { primary: { main: '#244f3d' }, background: { default: '#f7f8f4', paper: '#ffffff' }, text: { primary: '#21392e', secondary: '#68766e' } },
-  typography: { fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', button: { textTransform: 'none', fontWeight: 600 } },
-  shape: { borderRadius: 12 },
-  components: { MuiButton: { defaultProps: { disableElevation: true } }, MuiPaper: { styleOverrides: { outlined: { borderColor: '#e1e6dd' } } } },
-})
 
 function Protected({ admin = false }) {
   const { user } = useAuth()
@@ -42,5 +36,5 @@ function SessionRoutes() {
 
 export default function App() {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 30_000 } } }))
-  return <ThemeProvider theme={theme}><CssBaseline /><QueryClientProvider client={queryClient}><BrowserRouter><AuthProvider><SessionRoutes /></AuthProvider></BrowserRouter></QueryClientProvider></ThemeProvider>
+  return <AppearanceProvider><QueryClientProvider client={queryClient}><BrowserRouter><AuthProvider><SessionRoutes /></AuthProvider></BrowserRouter></QueryClientProvider></AppearanceProvider>
 }
