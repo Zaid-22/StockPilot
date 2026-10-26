@@ -1,8 +1,27 @@
 import { Box, Stack, Typography } from '@mui/material'
-import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
+
 export default function Brand({ light = false }) {
-  return <Stack direction="row" spacing={1.5} alignItems="center">
-    <Box sx={{ display: 'grid', placeItems: 'center', width: 39, height: 39, borderRadius: '12px', bgcolor: light ? '#d9edb5' : 'primary.main', color: light ? '#173d32' : '#fff' }}><Inventory2OutlinedIcon fontSize="small" /></Box>
-    <Typography fontWeight={800} fontSize={24} letterSpacing={-0.8} color={light ? '#fff' : 'text.primary'}>StockPilot<span style={{ color: light ? '#d9edb5' : '#5d8b69' }}>.</span></Typography>
+  return <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flexShrink: 0 }}>
+    <Box sx={{
+      display: 'grid', placeItems: 'center', flexShrink: 0,
+      width: 48, height: 48, borderRadius: '14px',
+      bgcolor: light ? '#f1f6e9' : '#edf3e6',
+      border: '1px solid', borderColor: light ? '#ffffff40' : '#dce7d2',
+    }}>
+      <Box component="img" src="/stockpilot-mark.png" alt="" aria-hidden="true"
+        width={46} height={46} sx={{ display: 'block', objectFit: 'contain' }} />
+    </Box>
+    <Box>
+      <Typography component="span" sx={{
+        display: 'block', fontSize: 23, fontWeight: 800, lineHeight: 1.15,
+        letterSpacing: '-1px', whiteSpace: 'nowrap',
+        color: light ? '#fff' : 'text.primary',
+      }}>Stock<Box component="span" sx={{ fontWeight: 500, color: light ? '#d9edb5' : 'primary.main' }}>Pilot</Box></Typography>
+      <Typography component="span" sx={{
+        display: 'block', mt: 0.6, fontSize: 8, fontWeight: 700,
+        letterSpacing: '1.55px', lineHeight: 1.2, whiteSpace: 'nowrap',
+        color: light ? '#b6cec2' : 'text.secondary',
+      }}>INVENTORY & OPERATIONS</Typography>
+    </Box>
   </Stack>
 }
