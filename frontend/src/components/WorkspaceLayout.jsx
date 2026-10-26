@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { Alert, Avatar, Box, Button, Chip, Divider, Stack, Typography } from '@mui/material'
+import { Alert, Avatar, Box, Button, Divider, Stack, Typography } from '@mui/material'
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined'
 import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline'
 import LogoutIcon from '@mui/icons-material/Logout'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import { catalogs } from '../features/catalog/catalog'
 import Brand from './Brand'
+import ThemeToggle from './ThemeToggle'
 import { useAuth } from '../features/auth/authContext'
 
 export default function WorkspaceLayout() {
@@ -19,9 +20,9 @@ export default function WorkspaceLayout() {
     try { await logout() } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
   return <Box className="workspace">
-    <Box component="aside" className="sidebar">
-      <Brand /><Typography variant="overline" sx={{ mt: 5, mb: 1, color: 'text.secondary', letterSpacing: 1.5 }}>WORKSPACE</Typography>
-      <Box component="nav" aria-label="Workspace" className="workspace-nav">
+    <Box component="aside" className="sidebar" sx={{ bgcolor: 'background.paper', borderColor: 'divider' }}>
+      <Brand />
+      <Box component="nav" aria-label="Workspace" className="workspace-nav" sx={{ mt: { xs: 2, md: 4 } }}>
       <Button component={Link} to="/" startIcon={<DashboardOutlinedIcon />} variant={pathname === '/' ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start', mb: 1 }}>Overview</Button>
       <Button component={Link} to="/inventory" startIcon={<Inventory2OutlinedIcon />} variant={pathname === '/inventory' ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start', mb: 1 }}>Inventory</Button>
       <Button component={Link} to="/purchases" variant={pathname === '/purchases' ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start', mb: 1 }}>Purchasing</Button>
@@ -31,10 +32,10 @@ export default function WorkspaceLayout() {
       <Button component={Link} to="/reports" variant={pathname === '/reports' ? 'contained' : 'text'} sx={{ justifyContent: 'flex-start', mb: 1 }}>Reports</Button>
       </Box>
       <Box sx={{ flex: 1 }} /><Divider sx={{ my: 2 }} />
-      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}><Avatar sx={{ bgcolor: '#e0e9d7', color: 'primary.main' }}>{user.displayName?.[0] || user.email[0]}</Avatar><Box sx={{ minWidth: 0 }}><Typography variant="body2" fontWeight={700} noWrap>{user.displayName || user.email}</Typography><Typography variant="caption" color="text.secondary">{user.roles.join(' · ')}</Typography></Box></Stack>
+      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}><Avatar sx={{ bgcolor: 'action.selected', color: 'primary.main' }}>{user.displayName?.[0] || user.email[0]}</Avatar><Box sx={{ minWidth: 0 }}><Typography variant="body2" fontWeight={700} noWrap>{user.displayName || user.email}</Typography><Typography variant="caption" color="text.secondary">{user.roles.join(' · ')}</Typography></Box></Stack>
       <Button onClick={signOut} disabled={busy} startIcon={<LogoutIcon />} sx={{ justifyContent: 'flex-start' }}>{busy ? 'Signing out…' : 'Sign out'}</Button>
     </Box>
-    <Box className="workspace-main"><Box component="header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 5 }}><Typography color="text.secondary" variant="body2">Workspace / {pathname === '/access' ? 'User access' : catalogs[pathname.split('/')[2]]?.title || ({ '/inventory': 'Inventory', '/purchases': 'Purchasing', '/sales': 'Sales', '/reports': 'Reports' })[pathname] || 'Overview'}</Typography><Chip label="Connected workspace" size="small" variant="outlined" color="primary" /></Box>
+    <Box className="workspace-main"><Box component="header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 5 }}><Typography color="text.secondary" variant="body2">Workspace / {pathname === '/access' ? 'User access' : catalogs[pathname.split('/')[2]]?.title || ({ '/inventory': 'Inventory', '/purchases': 'Purchasing', '/sales': 'Sales', '/reports': 'Reports' })[pathname] || 'Overview'}</Typography><ThemeToggle /></Box>
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}<Outlet />
     </Box>
   </Box>

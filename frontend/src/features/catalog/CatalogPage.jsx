@@ -52,7 +52,7 @@ function CatalogContent({ kind }) {
   }
   return <>
     <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={2} sx={{ mb: 3 }}>
-      <Box><Typography component="h1" variant="h3" fontWeight={700}>{definition.title}</Typography><Typography color="text.secondary" sx={{ mt: 1 }}>{definition.description}</Typography></Box>
+      <Box><Typography component="h1" variant="h4" fontWeight={700}>{definition.title}</Typography><Typography color="text.secondary" sx={{ mt: 1 }}>{definition.description}</Typography></Box>
       {canEdit && <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setError(''); setEditor({ id: null }) }} sx={{ alignSelf: 'flex-start' }} disabled={product && (categories.isPending || Boolean(categories.error))}>Add {definition.singular}</Button>}
     </Stack>
     {!canEdit && <Alert severity="info" sx={{ mb: 2 }}>You have read-only access to the catalog.</Alert>}

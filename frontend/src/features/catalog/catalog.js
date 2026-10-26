@@ -2,10 +2,10 @@ import { z } from 'zod'
 import { apiRequest } from '../../lib/api'
 
 export const catalogs = {
-  products: { title: 'Products', singular: 'product', description: 'Keep products organized with a unique SKU, category, and reorder level.' },
-  categories: { title: 'Categories', singular: 'category', description: 'Group products so your team can find them easily.' },
-  suppliers: { title: 'Suppliers', singular: 'supplier', description: 'Maintain the people and companies you purchase from.' },
-  customers: { title: 'Customers', singular: 'customer', description: 'Keep customer contact details ready for sales orders.' },
+  products: { title: 'Products', singular: 'product', description: 'Product details, prices, and reorder levels.' },
+  categories: { title: 'Categories', singular: 'category', description: 'Product categories.' },
+  suppliers: { title: 'Suppliers', singular: 'supplier', description: 'Supplier contact details.' },
+  customers: { title: 'Customers', singular: 'customer', description: 'Customer contact details.' },
 }
 const name = z.string().trim().min(1, 'Enter a name.').max(160)
 const optionalEmail = z.union([z.literal(''), z.string().trim().email('Enter a valid email.').max(256)])
