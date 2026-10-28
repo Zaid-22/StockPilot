@@ -26,12 +26,17 @@ function Protected({ admin = false }) {
 function SessionRoutes() {
   const auth = useAuth()
   if (auth.loading) return <Box className="center-screen"><CircularProgress aria-label="Checking your session" /></Box>
-  if (auth.error) return <Box className="center-screen"><Alert severity="error" action={<Button onClick={() => auth.retry()}>Retry</Button>}>{auth.error.message}</Alert></Box>
-  return <Suspense fallback={<Box sx={{ p: 4 }}><CircularProgress aria-label="Loading page" /></Box>}><Routes>
+  if (auth.error && auth.user === undefined) return <Box className="center-screen"><Alert severity="error" action={<Button onClick={() => auth.retry()}>Retry</Button>}>{auth.error.message}</Alert></Box>
+  // Background failures must not unmount forms or discard their retry IDs.
+  // A confirmed 401 still clears the session in AuthProvider.
+  return <>
+    {auth.error && <Alert severity="warning" action={<Button onClick={() => auth.retry()}>Retry session check</Button>}>Unable to check your session. Your open forms have been kept.</Alert>}
+    <Suspense fallback={<Box sx={{ p: 4 }}><CircularProgress aria-label="Loading page" /></Box>}><Routes>
     <Route path="/login" element={<LoginPage />} />
     <Route element={<Protected />}><Route element={<WorkspaceLayout />}><Route index element={<OverviewPage />} /><Route path="/catalog/:kind" element={<CatalogPage />} /><Route path="/inventory" element={<InventoryPage />} /><Route path="/reports" element={<ReportsPage />} /><Route path="/purchases" element={<OrdersPage key="purchases" kind="purchases" />} /><Route path="/sales" element={<OrdersPage key="sales" kind="sales" />} /><Route element={<Protected admin />}><Route path="/access" element={<AccessPage />} /></Route></Route></Route>
     <Route path="*" element={<Box sx={{ p: 6 }}><Typography component="h1" variant="h4">Page not found</Typography><Button component={Link} to="/">Return to workspace</Button></Box>} />
   </Routes></Suspense>
+  </>
 }
 
 export default function App() {
