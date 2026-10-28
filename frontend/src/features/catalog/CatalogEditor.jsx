@@ -13,16 +13,20 @@ export default function CatalogEditor({ kind, id, categories, onClose, onSaved }
   return <Dialog open onClose={() => { if (!busy) onClose() }} fullWidth maxWidth="sm" aria-labelledby="editor-title">
     <DialogTitle id="editor-title">{id ? 'Edit' : 'Add'} {catalogs[kind].singular}</DialogTitle>
     {id && detail.isPending ? <DialogContent><Typography role="status">Loading details…</Typography></DialogContent>
-      : id && detail.error ? <><DialogContent><Alert severity="error" action={<Button onClick={() => detail.refetch()}>Retry</Button>}>{detail.error.message}</Alert></DialogContent><DialogActions><Button onClick={onClose}>Close</Button></DialogActions></>
-        : <EditorForm key={detail.data?.version ?? 'new'} kind={kind} record={detail.data} categories={categories} onClose={onClose} onSaved={onSaved} setBusy={setBusy} reload={() => detail.refetch()} />}
+      : id && detail.error && !detail.data ? <><DialogContent><Alert severity="error" action={<Button onClick={() => detail.refetch()}>Retry</Button>}>{detail.error.message}</Alert></DialogContent><DialogActions><Button onClick={onClose}>Close</Button></DialogActions></>
+        : <EditorForm key={id ?? 'new'} kind={kind} initialRecord={detail.data} categories={categories} onClose={onClose} onSaved={onSaved} setBusy={setBusy} reload={() => detail.refetch()} />}
   </Dialog>
 }
 
-function EditorForm({ kind, record, categories, onClose, onSaved, setBusy, reload }) {
+function EditorForm({ kind, initialRecord, categories, onClose, onSaved, setBusy, reload }) {
   const product = kind === 'products'
+  // Keep the values and concurrency version from when editing began together.
+  // Only an explicit reload may replace this snapshot.
+  const [record, setRecord] = useState(initialRecord)
+  const [reloading, setReloading] = useState(false)
   const [editError, setError] = useState(null)
   const queryClient = useQueryClient()
-  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, control, reset, formState: { errors, isSubmitting } } = useForm({
     defaultValues: defaults(record, product), resolver: zodResolver(product ? productSchema : referenceSchema),
   })
   const categoryId = useWatch({ control, name: 'categoryId' })
@@ -34,8 +38,19 @@ function EditorForm({ kind, record, categories, onClose, onSaved, setBusy, reloa
   }
   const creation = useIdempotentMutation({ mutationFn: payload => apiMutation(`/catalog/${kind}`, payload), onSuccess: saved })
   const error = editError || creation.error
-  const locked = isSubmitting || creation.locked
-  useEffect(() => { setBusy(creation.locked) }, [creation.locked, setBusy])
+  const locked = isSubmitting || creation.locked || reloading
+  useEffect(() => { setBusy(locked) }, [locked, setBusy])
+  async function reloadLatest() {
+    setReloading(true)
+    try {
+      const result = await reload()
+      if (result.error) throw result.error
+      setRecord(result.data)
+      reset(defaults(result.data, product))
+      setError(null)
+    } catch (failure) { setError(failure) }
+    finally { setReloading(false) }
+  }
   async function save(values) {
     const payload = { ...values, ...(record ? { version: record.version } : {}) }
     if (!product) for (const field of ['email', 'phone', 'address']) payload[field] = payload[field] || null
@@ -43,17 +58,16 @@ function EditorForm({ kind, record, categories, onClose, onSaved, setBusy, reloa
       creation.submit(() => ({ ...payload, requestId: crypto.randomUUID() }))
       return
     }
-    setBusy(true); setError(null)
+    setError(null)
     try {
       await apiMutation(`/catalog/${kind}/${record.id}`, payload, 'PUT')
       await saved()
     } catch (failure) { setError(failure) }
-    finally { setBusy(false) }
   }
   const field = (key, label, options = {}) => <TextField key={key} label={label} fullWidth {...register(key)} error={Boolean(errors[key])} helperText={errors[key]?.message} {...options} />
   return <form onSubmit={creation.uncertain ? event => { event.preventDefault(); creation.retry() } : handleSubmit(save)} noValidate>
     <DialogContent><Stack spacing={2.5} sx={{ pt: 1 }}>
-      {error && <Alert severity="error" action={error.status === 409 && record ? <Button onClick={reload}>Reload latest</Button> : undefined}>{error.message}{creation.uncertain && ' Result unknown. Retry this request before making changes.'}</Alert>}
+      {error && <Alert severity="error" action={record ? <Button disabled={locked} onClick={reloadLatest}>{reloading ? 'Reloading…' : 'Reload latest'}</Button> : undefined}>{error.message}{creation.uncertain && ' Result unknown. Retry this request before making changes.'}</Alert>}
       <Box component="fieldset" disabled={locked} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}><Stack spacing={2.5}>
       {field('name', 'Name', { autoFocus: true, required: true })}
       {product ? <>
@@ -70,6 +84,6 @@ function EditorForm({ kind, record, categories, onClose, onSaved, setBusy, reloa
       <FormControlLabel control={<Checkbox {...register('isActive')} checked={isActive} />} label="Active" />
       {record && <Typography variant="caption" color="text.secondary">Inactive records remain available in history. Reloading latest changes discards unsaved edits.</Typography>}
     </Stack></Box></Stack></DialogContent>
-    <DialogActions sx={{ p: 3 }}><Button onClick={onClose} disabled={locked}>Cancel</Button><Button type="submit" variant="contained" disabled={isSubmitting || creation.isPending}>{creation.isPending || isSubmitting ? 'Saving…' : creation.uncertain ? 'Retry creation' : 'Save'}</Button></DialogActions>
+    <DialogActions sx={{ p: 3 }}><Button onClick={onClose} disabled={locked}>Cancel</Button><Button type="submit" variant="contained" disabled={isSubmitting || creation.isPending || reloading}>{creation.isPending || isSubmitting ? 'Saving…' : creation.uncertain ? 'Retry creation' : 'Save'}</Button></DialogActions>
   </form>
 }
